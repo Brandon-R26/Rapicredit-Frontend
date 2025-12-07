@@ -6,12 +6,22 @@ import { CssBaseline, Box } from "@mui/material";
 import theme from "../theme/theme";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
+import { usePathname } from "next/navigation";
 
 type Props = {
   children: ReactNode;
 };
 
 export default function ClientLayout({ children }: Props) {
+  const pathname = usePathname();
+
+  // rutas que NO deben usar el layout
+  const noLayoutRoutes = ["/login"];
+
+  if (noLayoutRoutes.includes(pathname)) {
+    return <>{children}</>;
+  }
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
