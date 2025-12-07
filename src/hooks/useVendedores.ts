@@ -22,7 +22,7 @@ export function useVendedores() {
       setError(null);
       try {
         // Ajusta el endpoint según tu backend: /vendedores o /usuarios?rol=VENDEDOR
-        const res = await apiFetch<Vendedor[]>("/vendedores");
+        const res = await apiFetch<Vendedor[]>("/users/");
         if (!cancelled) setData(res || []);
       } catch (err: unknown) {
         console.error("Error cargando vendedores:", err);

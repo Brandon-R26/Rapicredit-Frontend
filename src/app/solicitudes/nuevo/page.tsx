@@ -17,9 +17,11 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useRouter } from 'next/navigation';
-import { apiFetch } from '../../../lib/api';
+// import { apiFetch } from '../../../lib/api';
 import { useClientes, Cliente } from '../../../hooks/useClientes';
 import { useCobradores, Cobrador } from '../../../hooks/useCobradores';
+import { useTasasInteres, TasaInteres } from '../../../hooks/useTasasInteres';
+import { useFrecuenciasPago, FrecuenciaPago } from '../../../hooks/useFrecuenciasPago';
 
 type EstadoInicial = 'REGISTRADA';
 
@@ -36,14 +38,6 @@ const NuevoSolicitudPage: React.FC = () => {
     finalidadCredito: '',
     fechaSolicitud: hoy,
     observaciones: '',
-    tasInteresId: '',
-    frecuenciaPagoId: '',
-    datosNegocio: '', // JSON opcional
-    datosConyuge: '', // JSON opcional
-    referenciasPersonales: '', // JSON array opcional
-    garantias: '', // JSON array opcional
-    tablaAmortizacion: '', // JSON array opcional
-    cuotaEstimadaComision: '', // JSON opcional
   });
 
   // Cargar opciones de clientes y cobradores
@@ -53,9 +47,13 @@ const NuevoSolicitudPage: React.FC = () => {
     estado: 'ACTIVO',
   });
   const { data: cobradores, loading: loadingCobradores } = useCobradores({ busqueda: '', estado: 'ACTIVO', zona: '' });
+  const { data: tasas, loading: loadingTasas } = useTasasInteres();
+  const { data: frecuencias } = useFrecuenciasPago();
 
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
   const [selectedCobrador, setSelectedCobrador] = useState<Cobrador | null>(null);
+  const [selectedTasa, setSelectedTasa] = useState<TasaInteres | null>(null);
+  const [selectedFrecuencia, setSelectedFrecuencia] = useState<FrecuenciaPago | null>(null);
 
   // Etiquetas de opción
   const getClienteLabel = (c: Cliente | null) => {
@@ -66,6 +64,15 @@ const NuevoSolicitudPage: React.FC = () => {
   const getCobradorLabel = (v: Cobrador | null) => {
     if (!v) return '';
     return [v.nombreCompleto, v.correo].filter(Boolean).join(' • ');
+  };
+  const getTasaLabel = (t: TasaInteres | null) => {
+    if (!t) return '';
+    const pct = t.porcentajeInteres != null ? `${t.porcentajeInteres}%` : undefined;
+    return pct ? `${t.nombre} - ${pct}` : t.nombre;
+  };
+  const getFrecuenciaLabel = (f: FrecuenciaPago | null) => {
+    if (!f) return '';
+    return [f.nombre, f.dias != null ? `${f.dias} días` : undefined].filter(Boolean).join(' • ');
   };
 
   const [saving, setSaving] = useState(false);
@@ -103,28 +110,20 @@ const NuevoSolicitudPage: React.FC = () => {
       return false;
     }
 
-    // Validar JSONs si fueron ingresados
-    const jsonFields = [
-      'datosNegocio',
-      'datosConyuge',
-      'referenciasPersonales',
-      'garantias',
-      'tablaAmortizacion',
-      'cuotaEstimadaComision',
-    ] as const;
-    for (const key of jsonFields) {
-      const val = (form as any)[key] as string;
-      if (val && val.trim()) {
-        try {
-          JSON.parse(val);
-        } catch {
-          setSnackbarSeverity('error');
-          setSnackbarMsg(`El campo ${key} debe ser JSON válido.`);
-          setSnackbarOpen(true);
-          return false;
-        }
-      }
+    if (!selectedTasa?._id) {
+      setSnackbarSeverity('error');
+      setSnackbarMsg('Debes seleccionar una tasa de interés.');
+      setSnackbarOpen(true);
+      return false;
     }
+
+    if (!selectedFrecuencia?.id) {
+      setSnackbarSeverity('error');
+      setSnackbarMsg('Debes seleccionar una frecuencia de pago.');
+      setSnackbarOpen(true);
+      return false;
+    }
+
 
     return true;
     
@@ -146,22 +145,13 @@ const NuevoSolicitudPage: React.FC = () => {
         finalidadCredito: form.finalidadCredito || null,
         fechaSolicitud: form.fechaSolicitud,
         observaciones: form.observaciones || '',
-        tasInteresId: form.tasInteresId || null,
-        frecuenciaPagoId: form.frecuenciaPagoId || null,
-        datosNegocio: form.datosNegocio ? JSON.parse(form.datosNegocio) : undefined,
-        datosConyuge: form.datosConyuge ? JSON.parse(form.datosConyuge) : undefined,
-        referenciasPersonales: form.referenciasPersonales ? JSON.parse(form.referenciasPersonales) : undefined,
-        garantias: form.garantias ? JSON.parse(form.garantias) : undefined,
-        tablaAmortizacion: form.tablaAmortizacion ? JSON.parse(form.tablaAmortizacion) : undefined,
-        cuotaEstimadaComision: form.cuotaEstimadaComision ? JSON.parse(form.cuotaEstimadaComision) : undefined,
+        tasInteresId: selectedTasa?._id || null,
+        frecuenciaPagoId: selectedFrecuencia?._id || null,
         estadoSolicitud: 'REGISTRADA' as EstadoInicial,
       };
 
-      // POST real al backend
-      await apiFetch('/solicitudes', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
+      // Backend deshabilitado: simular guardado
+      console.log('Solicitud (simulada) enviada:', payload);
 
       setSnackbarSeverity('success');
       setSnackbarMsg('Solicitud registrada correctamente.');
@@ -314,7 +304,7 @@ const NuevoSolicitudPage: React.FC = () => {
               </Grid>
             </Grid>
 
-            {/* Parámetros financieros */}
+            {/* Parámetros financieros (combobox) */}
             <Accordion>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Typography variant="subtitle2">Parámetros financieros</Typography>
@@ -322,114 +312,30 @@ const NuevoSolicitudPage: React.FC = () => {
               <AccordionDetails>
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      label="Tasa de interés (ID)"
-                      name="tasInteresId"
-                      value={form.tasInteresId}
-                      onChange={handleChange}
-                      fullWidth
+                    <Autocomplete
                       size="small"
-                      placeholder="ObjectId o identificador de tasa"
+                      options={tasas}
+                      loading={loadingTasas}
+                      value={selectedTasa as any}
+                      onChange={(_, val) => setSelectedTasa(val as TasaInteres | null)}
+                      getOptionLabel={(option) => (typeof option === 'string' ? option : getTasaLabel(option as TasaInteres))}
+                      isOptionEqualToValue={(opt, val) => (opt as TasaInteres)._id === (val as TasaInteres)._id}
+                      renderInput={(params) => (
+                        <TextField {...params} label="Tasa de interés" placeholder="Selecciona tasa…" required />
+                      )}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      label="Frecuencia de pago (ID)"
-                      name="frecuenciaPagoId"
-                      value={form.frecuenciaPagoId}
-                      onChange={handleChange}
-                      fullWidth
+                    <Autocomplete
                       size="small"
-                      placeholder="ObjectId o identificador de frecuencia"
-                    />
-                  </Grid>
-                </Grid>
-              </AccordionDetails>
-            </Accordion>
-
-            {/* Datos adicionales */}
-            <Accordion>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography variant="subtitle2">Datos adicionales (JSON)</Typography>
-              </AccordionSummary>
-              <AccordionDetails>
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12 }}>
-                    <TextField
-                      label="Datos del negocio (objeto JSON)"
-                      name="datosNegocio"
-                      value={form.datosNegocio}
-                      onChange={handleChange}
-                      fullWidth
-                      size="small"
-                      multiline
-                      minRows={3}
-                      placeholder={'{ "ingresos": 0, "direccion": "..." }'}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12 }}>
-                    <TextField
-                      label="Datos del cónyuge (objeto JSON)"
-                      name="datosConyuge"
-                      value={form.datosConyuge}
-                      onChange={handleChange}
-                      fullWidth
-                      size="small"
-                      multiline
-                      minRows={3}
-                      placeholder={'{ "nombre": "...", "identidad": "..." }'}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12 }}>
-                    <TextField
-                      label="Referencias personales (array JSON)"
-                      name="referenciasPersonales"
-                      value={form.referenciasPersonales}
-                      onChange={handleChange}
-                      fullWidth
-                      size="small"
-                      multiline
-                      minRows={3}
-                      placeholder={'[{ "nombre": "...", "telefono": "..." }]'}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12 }}>
-                    <TextField
-                      label="Garantías (array JSON)"
-                      name="garantias"
-                      value={form.garantias}
-                      onChange={handleChange}
-                      fullWidth
-                      size="small"
-                      multiline
-                      minRows={3}
-                      placeholder={'[{ "tipo": "prendaria", "valor": 0 }]'}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12 }}>
-                    <TextField
-                      label="Tabla de amortización (array JSON)"
-                      name="tablaAmortizacion"
-                      value={form.tablaAmortizacion}
-                      onChange={handleChange}
-                      fullWidth
-                      size="small"
-                      multiline
-                      minRows={3}
-                      placeholder={'[{ "cuota": 1, "capital": 0, "interes": 0 }]'}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12 }}>
-                    <TextField
-                      label="Cuota estimada y comisión (objeto JSON)"
-                      name="cuotaEstimadaComision"
-                      value={form.cuotaEstimadaComision}
-                      onChange={handleChange}
-                      fullWidth
-                      size="small"
-                      multiline
-                      minRows={3}
-                      placeholder={'{ "cuota": 0, "comision": 0 }'}
+                      options={frecuencias}
+                      value={selectedFrecuencia as any}
+                      onChange={(_, val) => setSelectedFrecuencia(val as FrecuenciaPago | null)}
+                      getOptionLabel={(option) => (typeof option === 'string' ? option : getFrecuenciaLabel(option as FrecuenciaPago))}
+                      isOptionEqualToValue={(opt, val) => (opt as FrecuenciaPago).id === (val as FrecuenciaPago).id}
+                      renderInput={(params) => (
+                        <TextField {...params} label="Frecuencia de pago" placeholder="Selecciona frecuencia…" required />
+                      )}
                     />
                   </Grid>
                 </Grid>

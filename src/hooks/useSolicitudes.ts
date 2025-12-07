@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { apiFetch } from '../lib/api';
+// import { apiFetch } from '../lib/api';
 
 export type EstadoSolicitudFiltro =
   | 'TODAS'
@@ -18,6 +18,8 @@ export interface SolicitudResumen {
   clienteIdentidad?: string;
   capitalSolicitado: number;
   estadoSolicitud: string;
+  cobradorNombre?: string;
+  cuotaEstablecida?: number;
 }
 
 export interface SolicitudesFilters {
@@ -48,11 +50,42 @@ export function useSolicitudes(filters: SolicitudesFilters) {
       setLoading(true);
       setError(null);
       try {
-        const res = await apiFetch<SolicitudApiListItem[]>('/solicitudes');
+        // Backend deshabilitado: datos en duro
+        const res: SolicitudApiListItem[] = [
+          {
+            _id: 'sol1',
+            codigoSolicitud: 'SOL-001',
+            fechaSolicitud: new Date().toISOString(),
+            clienteId: {
+              nombres: 'Juan',
+              apellidos: 'Pérez',
+              identidadCliente: '0801-1990-00000',
+            },
+            cobradorId: { nombreCompleto: 'Carlos Gómez' } as any,
+            capitalSolicitado: 15000,
+            estadoSolicitud: 'REGISTRADA',
+            cuotaEstimadaComision: { cuota: 1250 } as any,
+          } as any,
+          {
+            _id: 'sol2',
+            codigoSolicitud: 'SOL-002',
+            fechaSolicitud: new Date().toISOString(),
+            clienteId: {
+              nombres: 'María',
+              apellidos: 'López',
+              identidadCliente: '0801-1992-11111',
+            },
+            cobradorId: { nombreCompleto: 'Ana Rivera' } as any,
+            capitalSolicitado: 22000,
+            estadoSolicitud: 'EN_REVISION',
+            cuotaEstimadaComision: { cuota: 1800 } as any,
+          } as any,
+        ];
         if (cancelled) return;
 
         const mapped: SolicitudResumen[] = (res || []).map((s) => {
           const cliente = (s.clienteId as any) || (s.cliente as any) || {};
+          const cobrador = (s.cobradorId as any) || (s.cobrador as any) || {};
           const nombreCliente =
             cliente.nombreCompleto ||
             [cliente.nombres, cliente.apellidos].filter(Boolean).join(' ') ||
@@ -67,6 +100,10 @@ export function useSolicitudes(filters: SolicitudesFilters) {
               cliente.identidadCliente ?? cliente.identidad ?? undefined,
             capitalSolicitado: s.capitalSolicitado ?? 0,
             estadoSolicitud: s.estadoSolicitud ?? 'REGISTRADA',
+            cobradorNombre: (
+              cobrador.nombreCompleto ?? [cobrador.nombres, cobrador.apellidos].filter(Boolean).join(' ')
+            ) || undefined,
+            cuotaEstablecida: (s as any).cuotaEstimadaComision?.cuota ?? undefined,
           };
         });
 

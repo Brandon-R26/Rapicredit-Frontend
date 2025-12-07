@@ -125,7 +125,10 @@ const SolicitudesPage: React.FC = () => {
       <Paper sx={{ p: 2 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
           <Typography variant="subtitle2">Listado de solicitudes</Typography>
-          <Chip size="small" label={`Total: ${data.length}`} />
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Chip size="small" label={`Total: ${data.length}`} />
+            <Button size="small" variant="outlined">Calcular cuota</Button>
+          </Box>
         </Box>
 
         <TableContainer>
@@ -136,8 +139,10 @@ const SolicitudesPage: React.FC = () => {
                 <TableCell>Fecha</TableCell>
                 <TableCell>Cliente</TableCell>
                 <TableCell>Monto (capital)</TableCell>
+                <TableCell>Cobrador</TableCell>
+                <TableCell>Cuota</TableCell>
                 <TableCell>Estado</TableCell>
-                <TableCell></TableCell>
+                
               </TableRow>
             </TableHead>
             <TableBody>
@@ -150,18 +155,10 @@ const SolicitudesPage: React.FC = () => {
                     <TableCell>{formatDate(s.fechaSolicitud)}</TableCell>
                     <TableCell>{s.clienteNombre}</TableCell>
                     <TableCell>{formatMoney(s.capitalSolicitado ?? 0)}</TableCell>
+                    <TableCell>{s.cobradorNombre || '—'}</TableCell>
+                    <TableCell>{s.cuotaEstablecida != null ? formatMoney(s.cuotaEstablecida) : '—'}</TableCell>
                     <TableCell>
                       {renderEstadoChip(s.estadoSolicitud)}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        size="small"
-                        variant="text"
-                        component={Link}
-                        href={`/solicitudes/${s.id}`}
-                      >
-                        Más detalles
-                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
