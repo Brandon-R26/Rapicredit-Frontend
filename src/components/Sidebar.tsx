@@ -17,6 +17,7 @@ const navItems = [
     section: "General",
     items: [
       { label: "Dashboard", href: "/dashboard" },
+      { label: "Tasas", href: "/tasas" },
       { label: "Préstamos", href: "/prestamos" },
       { label: "Clientes", href: "/clientes" },
       { label: "Pagos", href: "/pagos" },

@@ -19,6 +19,7 @@ export default function Topbar() {
     if (pathname.startsWith("/clientes")) return "Clientes";
     if (pathname.startsWith("/pagos")) return "Pagos";
     if (pathname.startsWith("/reportes")) return "Reportes";
+    if (pathname.startsWith("/tasas")) return "Tasas";
     if (pathname.startsWith("/configuracion")) return "Configuración";
     return "Dashboard";
   })();
