@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { apiFetch } from "../lib/api";
 
 export interface PrestamoClienteResumen {
   id: string;
@@ -44,102 +45,110 @@ export interface ClienteDetalle {
   abonosRecientes: AbonoClienteResumen[];
 }
 
-// Mock por ahora; luego se cambia a apiFetch(`/clientes/${id}`)
+/**
+ * Este hook ahora:
+ * - Llama al backend: GET /clientes/:id
+ * - Intenta mapear la respuesta a la forma que el frontend ya usa
+ * - Si el backend todavía no devuelve prestamos/abonos, simplemente caerán como [] y 0
+ */
 export function useClienteDetalle(id: string) {
   const [data, setData] = useState<ClienteDetalle | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
+    let cancelled = false;
 
-    const timeout = setTimeout(() => {
-      const hoy = new Date();
-      const fecha = (offsetDias: number) => {
-        const d = new Date(hoy);
-        d.setDate(d.getDate() + offsetDias);
-        return d.toISOString();
-      };
+    async function load() {
+      setLoading(true);
+      try {
+        // 👇 Ajusta si tu endpoint real es distinto (por ejemplo /clientes/:id/detalle)
+        const res: any = await apiFetch<any>(`/clientes/${id}`);
 
-      const mock: ClienteDetalle = {
-        id,
-        codigoCliente: "CL-001",
-        identidadCliente: "0801199912345",
-        RTN: "",
-        nombres: "Juan",
-        apellidos: "Pérez",
-        telefono: "9999-9999",
-        direccion: "Col. Centro, Tegucigalpa",
-        correo: "juan.perez@example.com",
-        estado: "ACTIVO",
-        fechaRegistro: fecha(-120),
+        if (cancelled || !res) return;
 
-        totalPrestamos: 3,
-        prestamosActivos: 2,
-        prestamosEnMora: 1,
-        saldoTotal: 18500,
+        const prestamosApi = Array.isArray(res.prestamos) ? res.prestamos : [];
+        const abonosApi = Array.isArray(res.abonosRecientes)
+          ? res.abonosRecientes
+          : [];
 
-        prestamos: [
-          {
-            id: "F0001",
-            codigoFinanciamiento: "F0001",
-            producto: "Crédito personal",
-            estadoFinanciamiento: "VIGENTE",
-            capitalInicial: 10000,
-            saldoCapital: 8500,
-            fechaDesembolso: fecha(-30),
-            fechaVencimiento: fecha(335),
-          },
-          {
-            id: "F0002",
-            codigoFinanciamiento: "F0002",
-            producto: "Crédito rápido",
-            estadoFinanciamiento: "EN_MORA",
-            capitalInicial: 8000,
-            saldoCapital: 7000,
-            fechaDesembolso: fecha(-60),
-            fechaVencimiento: fecha(305),
-          },
-          {
-            id: "F0003",
-            codigoFinanciamiento: "F0003",
-            producto: "Crédito línea",
-            estadoFinanciamiento: "PAGADO",
-            capitalInicial: 5000,
-            saldoCapital: 0,
-            fechaDesembolso: fecha(-365),
-            fechaVencimiento: fecha(-10),
-          },
-        ],
-        abonosRecientes: [
-          {
-            id: "AB001",
-            fecha: fecha(-5),
-            monto: 500,
-            codigoFinanciamiento: "F0001",
-            metodoPago: "Efectivo",
-          },
-          {
-            id: "AB002",
-            fecha: fecha(-2),
-            monto: 700,
-            codigoFinanciamiento: "F0002",
-            metodoPago: "Transferencia",
-          },
-          {
-            id: "AB003",
-            fecha: fecha(-1),
-            monto: 300,
-            codigoFinanciamiento: "F0001",
-            metodoPago: "Efectivo",
-          },
-        ],
-      };
+        const totalPrestamos = prestamosApi.length;
+        const prestamosActivos = prestamosApi.filter(
+          (p: any) => (p.estadoFinanciamiento || "").toUpperCase() === "VIGENTE"
+        ).length;
+        const prestamosEnMora = prestamosApi.filter(
+          (p: any) => (p.estadoFinanciamiento || "").toUpperCase() === "EN_MORA"
+        ).length;
+        const saldoTotal = prestamosApi.reduce(
+          (acc: number, p: any) => acc + (p.saldoCapital || 0),
+          0
+        );
 
-      setData(mock);
-      setLoading(false);
-    }, 400);
+        const prestamos: PrestamoClienteResumen[] = prestamosApi.map(
+          (p: any) => ({
+            id: String(p._id ?? p.id ?? ""),
+            codigoFinanciamiento: p.codigoFinanciamiento ?? "",
+            producto: p.producto ?? p.tipoProducto ?? undefined,
+            estadoFinanciamiento: p.estadoFinanciamiento ?? "",
+            capitalInicial: p.capitalInicial ?? 0,
+            saldoCapital: p.saldoCapital ?? 0,
+            fechaDesembolso: p.fechaDesembolso,
+            fechaVencimiento: p.fechaVencimiento,
+          })
+        );
 
-    return () => clearTimeout(timeout);
+        const abonosRecientes: AbonoClienteResumen[] = abonosApi.map(
+          (a: any) => ({
+            id: String(a._id ?? a.id ?? ""),
+            fecha: a.fechaAbono ?? a.fecha ?? new Date().toISOString(),
+            monto: a.montoAbono ?? a.monto ?? 0,
+            codigoFinanciamiento:
+              a.financiamientoId?.codigoFinanciamiento ??
+              a.codigoFinanciamiento ??
+              "",
+            metodoPago: a.metodoPago ?? a.formaPago ?? undefined,
+          })
+        );
+
+        const detalle: ClienteDetalle = {
+          id: String(res._id ?? res.id ?? id),
+          codigoCliente: res.codigoCliente,
+          identidadCliente: res.identidadCliente,
+          RTN: res.RTN,
+          nombres: res.nombres ?? res.nombre ?? undefined,
+          apellidos: res.apellidos ?? undefined,
+          telefono: res.telefono,
+          direccion: res.direccion,
+          correo: res.correo,
+          estado: res.estado,
+          fechaRegistro: res.fechaRegistro,
+
+          totalPrestamos,
+          prestamosActivos,
+          prestamosEnMora,
+          saldoTotal,
+          prestamos,
+          abonosRecientes,
+        };
+
+        if (!cancelled) {
+          setData(detalle);
+        }
+      } catch (error) {
+        console.error("Error cargando detalle de cliente:", error);
+        if (!cancelled) {
+          setData(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   return { data, loading };

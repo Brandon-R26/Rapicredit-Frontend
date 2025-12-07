@@ -1,6 +1,7 @@
 'use client';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || process.env.NEXT_PUBLIC_API_URL || "";
 
 // ⚠️ PROVISIONAL: token de prueba mientras no tengas login en el front
 const DEV_AUTH_TOKEN = "";
@@ -26,7 +27,7 @@ export async function apiFetch<T = unknown>(
   const token = authToken || DEV_AUTH_TOKEN;
 
   if (token) {
-    //finalHeaders['Authorization'] = `Bearer ${token}`;
+    finalHeaders["Authorization"] = `Bearer ${token}`;
   }
 
   // Solo ponemos Content-Type si NO es GET y no existe ya
@@ -34,7 +35,13 @@ export async function apiFetch<T = unknown>(
   if (method !== 'GET' && !finalHeaders['Content-Type']) {
     finalHeaders['Content-Type'] = 'application/json';
   }
-  console.log('apiFetch URL:', `${API_BASE_URL}${path}`);
+  if (!API_BASE_URL) {
+    throw new Error(
+      "Missing API base URL. Set NEXT_PUBLIC_API_BASE_URL (or NEXT_PUBLIC_API_URL) in your environment."
+    );
+  }
+
+  console.log("apiFetch URL:", `${API_BASE_URL}${path}`);
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...rest,
     headers: finalHeaders,
