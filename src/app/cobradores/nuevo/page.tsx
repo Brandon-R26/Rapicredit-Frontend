@@ -13,6 +13,7 @@ import {
   Alert,
 } from "@mui/material";
 import { useRouter } from "next/navigation";
+import { apiFetch } from "../../../lib/api";
 
 type EstadoCobrador = "ACTIVO" | "INACTIVO";
 
@@ -60,21 +61,39 @@ const NuevoCobradorPage: React.FC = () => {
     return true;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
 
     setSaving(true);
 
-    // DEMO: aquí iría el POST real al backend
-    // await apiFetch('/cobradores', { method: 'POST', body: JSON.stringify(form) });
-    setTimeout(() => {
-      setSaving(false);
+    try {
+      const payload = {
+        codigo: form.codigo || undefined,
+        nombreCompleto: form.nombreCompleto,
+        telefono: form.telefono || undefined,
+        correo: form.correo || undefined,
+        zona: form.zona || undefined,
+        estado: form.estado,
+      };
+
+      await apiFetch("/cobradores", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
       setSnackbarSeverity("success");
-      setSnackbarMsg("Cobrador registrado (demo, sin backend todavía).");
+      setSnackbarMsg("Cobrador registrado correctamente.");
       setSnackbarOpen(true);
       router.push("/cobradores");
-    }, 700);
+    } catch (err: any) {
+      console.error(err);
+      setSnackbarSeverity("error");
+      setSnackbarMsg("Error al registrar el cobrador.");
+      setSnackbarOpen(true);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {

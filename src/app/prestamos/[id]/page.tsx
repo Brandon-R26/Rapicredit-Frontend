@@ -8,8 +8,6 @@ import {
   Paper,
   Typography,
   Chip,
-  Button,
-  Divider,
   TableContainer,
   Table,
   TableHead,
@@ -17,110 +15,43 @@ import {
   TableCell,
   TableBody,
   CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   TextField,
-  MenuItem,
+  Button,
   Snackbar,
   Alert,
 } from "@mui/material";
+import Link from "next/link";
 import { usePrestamoDetalle } from "../../../hooks/usePrestamoDetalle";
+import { apiFetch } from "../../../lib/api";
 
 const PrestamoDetallePage: React.FC = () => {
   const params = useParams();
   const id = params?.id as string;
-  const { data, loading, setData } = usePrestamoDetalle(id);
 
-  // Estado para el modal de registrar abono
-  const [openAbono, setOpenAbono] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const { data, loading, error } = usePrestamoDetalle(id, reloadKey);
+
+  const [montoAbono, setMontoAbono] = useState("");
+  const [fechaAbono, setFechaAbono] = useState(
+    new Date().toISOString().slice(0, 10)
+  );
+  const [metodoPago, setMetodoPago] = useState("");
+  const [observaciones, setObservaciones] = useState("");
   const [savingAbono, setSavingAbono] = useState(false);
+
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMsg, setSnackbarMsg] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState<"success" | "error">(
     "success"
   );
 
-  const today = new Date().toISOString().slice(0, 10);
+  const formatMoney = (v?: number) =>
+    v != null
+      ? `L. ${v.toLocaleString("es-HN", { minimumFractionDigits: 2 })}`
+      : "L. 0.00";
 
-  const [abonoForm, setAbonoForm] = useState({
-    fecha: today,
-    monto: "",
-    numeroCuota: "",
-    metodoPago: "EFECTIVO",
-    observaciones: "",
-  });
-
-  const handleOpenAbono = () => setOpenAbono(true);
-  const handleCloseAbono = () => {
-    if (savingAbono) return;
-    setOpenAbono(false);
-  };
-
-  const handleChangeAbono = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    setAbonoForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmitAbono = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!data) return;
-
-    const montoNum = Number(abonoForm.monto);
-    if (isNaN(montoNum) || montoNum <= 0) {
-      setSnackbarSeverity("error");
-      setSnackbarMsg("El monto debe ser un número mayor a cero.");
-      setSnackbarOpen(true);
-      return;
-    }
-
-    setSavingAbono(true);
-
-    // DEMO: simulamos que se guarda el abono y actualizamos el estado local
-    setTimeout(() => {
-      setData((prev) => {
-        if (!prev) return prev;
-
-        const nuevoAbonoId = `AB-${Date.now()}`;
-
-        const nuevoAbono = {
-          id: nuevoAbonoId,
-          fecha: new Date(abonoForm.fecha).toISOString(),
-          monto: montoNum,
-          numeroCuota: abonoForm.numeroCuota
-            ? Number(abonoForm.numeroCuota)
-            : undefined,
-          metodoPago: abonoForm.metodoPago || undefined,
-          observaciones: abonoForm.observaciones || undefined,
-        };
-
-        return {
-          ...prev,
-          historialAbonos: [nuevoAbono, ...prev.historialAbonos],
-          totalPagado: prev.totalPagado + montoNum,
-          // si quisieras, podrías ajustar saldoCapital aquí
-          // saldoCapital: Math.max(0, prev.saldoCapital - montoNum),
-        };
-      });
-
-      setSnackbarSeverity("success");
-      setSnackbarMsg("Abono registrado (demo, sin backend aún).");
-      setSnackbarOpen(true);
-
-      setSavingAbono(false);
-      setOpenAbono(false);
-      setAbonoForm({
-        fecha: today,
-        monto: "",
-        numeroCuota: "",
-        metodoPago: "EFECTIVO",
-        observaciones: "",
-      });
-    }, 600);
-  };
+  const formatDate = (iso?: string) =>
+    iso ? new Date(iso).toLocaleDateString("es-HN") : "-";
 
   const handleCloseSnackbar = (
     _: React.SyntheticEvent | Event,
@@ -130,7 +61,56 @@ const PrestamoDetallePage: React.FC = () => {
     setSnackbarOpen(false);
   };
 
-  if (loading || !data) {
+  const handleRegistrarAbono = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const monto = Number(montoAbono);
+    if (!monto || monto <= 0) {
+      setSnackbarSeverity("error");
+      setSnackbarMsg("El monto del abono debe ser mayor a cero.");
+      setSnackbarOpen(true);
+      return;
+    }
+
+    setSavingAbono(true);
+
+    try {
+      const payload = {
+        financiamientoId: id,
+        montoAbono: monto,
+        fechaAbono,
+        metodoPago: metodoPago || null,
+        observaciones: observaciones || null,
+      };
+
+      // 👇 Ajusta la ruta si tu backend usa otro path para abonos
+      await apiFetch("/abonos", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      setSnackbarSeverity("success");
+      setSnackbarMsg("Abono registrado correctamente.");
+      setSnackbarOpen(true);
+
+      // Limpiar campos
+      setMontoAbono("");
+      setMetodoPago("");
+      setObservaciones("");
+
+      // Volver a cargar el detalle del préstamo
+      setReloadKey((k) => k + 1);
+    } catch (err: any) {
+      console.error(err);
+      setSnackbarSeverity("error");
+      setSnackbarMsg("Error al registrar el abono.");
+      setSnackbarOpen(true);
+    } finally {
+      setSavingAbono(false);
+    }
+  };
+
+  if (loading && !data) {
     return (
       <Box
         sx={{
@@ -145,41 +125,47 @@ const PrestamoDetallePage: React.FC = () => {
     );
   }
 
+  if (error) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Typography color="error" variant="body2">
+          {error}
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (!data) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Typography variant="body2">
+          No se pudo cargar la información del préstamo.
+        </Typography>
+      </Box>
+    );
+  }
+
   const {
     codigoFinanciamiento,
-    estadoFinanciamiento,
     capitalInicial,
     saldoCapital,
     tasaInteresAnual,
-    frecuenciaPago,
-    cuota,
+    estadoFinanciamiento,
     fechaDesembolso,
     fechaVencimiento,
-    totalInteresesPlan,
-    totalMoraPlan,
-    totalPagado,
-    observaciones,
     cliente,
     cobrador,
-    planCuotas,
-    historialAbonos,
+    abonos,
+    totalAbonado,
   } = data;
 
-  const formatDate = (iso?: string) =>
-    iso ? new Date(iso).toLocaleDateString("es-HN") : "-";
-
-  const formatMoney = (v?: number) =>
-    v != null
-      ? `L. ${v.toLocaleString("es-HN", { minimumFractionDigits: 2 })}`
-      : "L. 0.00";
-
   const renderEstadoChip = () => {
-    const val = (estadoFinanciamiento || "").toUpperCase();
-    let color: "default" | "error" | "success" | "info" = "default";
+    const val = estadoFinanciamiento.toUpperCase();
+    let color: "default" | "success" | "warning" | "error" | "info" = "info";
 
-    if (val === "EN_MORA") color = "error";
-    else if (val === "PAGADO") color = "success";
-    else if (val === "VIGENTE") color = "info";
+    if (val === "VIGENTE") color = "success";
+    else if (val === "EN_MORA") color = "error";
+    else if (val === "PAGADO") color = "default";
 
     return (
       <Chip size="small" label={val || "—"} color={color} variant="outlined" />
@@ -207,28 +193,42 @@ const PrestamoDetallePage: React.FC = () => {
             >
               {renderEstadoChip()}
               <Typography variant="caption" color="text.secondary">
-                Desembolso: {formatDate(fechaDesembolso)} · Vence:{" "}
-                {formatDate(fechaVencimiento)}
+                Cliente:{" "}
+                {cliente
+                  ? cliente.nombreCompleto ||
+                    cliente.codigoCliente ||
+                    cliente.identidadCliente
+                  : "—"}
               </Typography>
             </Box>
           </Box>
 
           <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-            <Button size="small" variant="contained" onClick={handleOpenAbono}>
-              Registrar abono
-            </Button>
-            <Button size="small" variant="outlined">
-              Ver plan de pagos
-            </Button>
-            <Button size="small" color="error" variant="outlined">
-              Marcar como pagado
+            {cliente && (
+              <Button
+                size="small"
+                variant="outlined"
+                component={Link}
+                href={`/clientes/${cliente.id}`}
+              >
+                Ver cliente
+              </Button>
+            )}
+            <Button
+              size="small"
+              variant="outlined"
+              component={Link}
+              href="/prestamos"
+            >
+              Volver a lista
             </Button>
           </Box>
         </Box>
 
+        {/* Resumen y datos */}
         <Grid container spacing={2}>
-          {/* Resumen del préstamo */}
-          <Grid size={{ xs: 12, md: 7 }}>
+          {/* Resumen financiero */}
+          <Grid size={{ xs: 12, md: 5 }}>
             <Paper sx={{ p: 2 }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 Resumen del préstamo
@@ -236,7 +236,7 @@ const PrestamoDetallePage: React.FC = () => {
               <Grid container spacing={1}>
                 <Grid size={{ xs: 6 }}>
                   <Typography variant="caption" color="text.secondary">
-                    Capital inicial
+                    Monto del préstamo
                   </Typography>
                   <Typography>{formatMoney(capitalInicial)}</Typography>
                 </Grid>
@@ -246,165 +246,84 @@ const PrestamoDetallePage: React.FC = () => {
                   </Typography>
                   <Typography>{formatMoney(saldoCapital)}</Typography>
                 </Grid>
-
                 <Grid size={{ xs: 6 }}>
                   <Typography variant="caption" color="text.secondary">
-                    Tasa de interés anual
+                    Total abonado
                   </Typography>
-                  <Typography>{tasaInteresAnual}%</Typography>
+                  <Typography>{formatMoney(totalAbonado)}</Typography>
                 </Grid>
                 <Grid size={{ xs: 6 }}>
                   <Typography variant="caption" color="text.secondary">
-                    Frecuencia de pago
+                    Tasa interés anual
                   </Typography>
-                  <Typography>{frecuenciaPago}</Typography>
-                </Grid>
-
-                <Grid size={{ xs: 6 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Cuota
+                  <Typography>
+                    {tasaInteresAnual != null
+                      ? `${tasaInteresAnual}%`
+                      : "No definido"}
                   </Typography>
-                  <Typography>{formatMoney(cuota)}</Typography>
                 </Grid>
                 <Grid size={{ xs: 6 }}>
                   <Typography variant="caption" color="text.secondary">
-                    Intereses planificados
+                    Fecha desembolso
                   </Typography>
-                  <Typography>{formatMoney(totalInteresesPlan)}</Typography>
-                </Grid>
-
-                <Grid size={{ xs: 6 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Total mora planificada
-                  </Typography>
-                  <Typography>{formatMoney(totalMoraPlan)}</Typography>
+                  <Typography>{formatDate(fechaDesembolso)}</Typography>
                 </Grid>
                 <Grid size={{ xs: 6 }}>
                   <Typography variant="caption" color="text.secondary">
-                    Total pagado
+                    Fecha vencimiento
                   </Typography>
-                  <Typography>{formatMoney(totalPagado)}</Typography>
+                  <Typography>{formatDate(fechaVencimiento)}</Typography>
                 </Grid>
               </Grid>
-
-              {observaciones && (
-                <>
-                  <Divider sx={{ my: 1.5 }} />
-                  <Typography variant="caption" color="text.secondary">
-                    Observaciones
-                  </Typography>
-                  <Typography variant="body2">{observaciones}</Typography>
-                </>
-              )}
             </Paper>
           </Grid>
 
           {/* Cliente y cobrador */}
-          <Grid size={{ xs: 12, md: 5 }}>
-            <Paper sx={{ p: 2, mb: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Cliente
-              </Typography>
-              <Typography variant="body2">
-                {[cliente.nombres, cliente.apellidos]
-                  .filter(Boolean)
-                  .join(" ") || "Cliente"}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Código: {cliente.codigoCliente || "—"}
-              </Typography>
-              <br />
-              <Typography variant="caption" color="text.secondary">
-                Identidad: {cliente.identidadCliente || "—"}
-              </Typography>
-              <br />
-              <Typography variant="caption" color="text.secondary">
-                Teléfono: {cliente.telefono || "—"}
-              </Typography>
-              <br />
-              <Typography variant="caption" color="text.secondary">
-                Dirección: {cliente.direccion || "—"}
-              </Typography>
-            </Paper>
-
+          <Grid size={{ xs: 12, md: 7 }}>
             <Paper sx={{ p: 2 }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Cobrador asignado
+                Cliente y cobrador
               </Typography>
-              <Typography variant="body2">
-                {cobrador?.nombreCompleto || "Sin asignar"}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Teléfono: {cobrador?.telefono || "—"}
-              </Typography>
-              <br />
-              <Typography variant="caption" color="text.secondary">
-                Zona: {cobrador?.zona || "—"}
-              </Typography>
+              <Grid container spacing={1}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Cliente
+                  </Typography>
+                  <Typography>
+                    {cliente
+                      ? cliente.nombreCompleto ||
+                        cliente.codigoCliente ||
+                        cliente.identidadCliente
+                      : "—"}
+                  </Typography>
+                  {cliente && (
+                    <Typography variant="caption" color="text.secondary">
+                      Identidad: {cliente.identidadCliente || "No registrada"}
+                    </Typography>
+                  )}
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Cobrador
+                  </Typography>
+                  <Typography>
+                    {cobrador
+                      ? cobrador.nombreCompleto ||
+                        cobrador.codigo ||
+                        cobrador.id
+                      : "Sin asignar"}
+                  </Typography>
+                </Grid>
+              </Grid>
             </Paper>
           </Grid>
         </Grid>
 
-        {/* Plan de pagos y historial de abonos */}
+        {/* Abonos y formulario */}
         <Grid container spacing={2}>
+          {/* Tabla de abonos */}
           <Grid size={{ xs: 12, md: 7 }}>
             <Paper sx={{ p: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Plan de pagos
-              </Typography>
-              <TableContainer sx={{ maxHeight: 320 }}>
-                <Table size="small" stickyHeader>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>#</TableCell>
-                      <TableCell>Fecha</TableCell>
-                      <TableCell>Cuota</TableCell>
-                      <TableCell>Capital</TableCell>
-                      <TableCell>Interés</TableCell>
-                      <TableCell>Saldo</TableCell>
-                      <TableCell>Estado</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {planCuotas.map((c) => (
-                      <TableRow key={c.numeroCuota}>
-                        <TableCell>{c.numeroCuota}</TableCell>
-                        <TableCell>{formatDate(c.fechaPago)}</TableCell>
-                        <TableCell>{formatMoney(c.montoCuota)}</TableCell>
-                        <TableCell>{formatMoney(c.capital)}</TableCell>
-                        <TableCell>{formatMoney(c.interes)}</TableCell>
-                        <TableCell>{formatMoney(c.saldoRestante)}</TableCell>
-                        <TableCell>
-                          <Chip
-                            size="small"
-                            label={c.estado}
-                            color={
-                              c.estado === "PAGADA"
-                                ? "success"
-                                : c.estado === "VENCIDA"
-                                ? "error"
-                                : "default"
-                            }
-                            variant="outlined"
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {planCuotas.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={7} align="center">
-                          No hay plan de pagos configurado.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Paper>
-          </Grid>
-
-          <Grid size={{ xs: 12, md: 5 }}>
-            <Paper sx={{ p: 2, height: "100%" }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 Historial de abonos
               </Typography>
@@ -414,23 +333,26 @@ const PrestamoDetallePage: React.FC = () => {
                     <TableRow>
                       <TableCell>Fecha</TableCell>
                       <TableCell>Monto</TableCell>
-                      <TableCell>Cuota</TableCell>
                       <TableCell>Método</TableCell>
+                      <TableCell>Recibo</TableCell>
+                      <TableCell>Registrado por</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {historialAbonos.map((a) => (
+                    {abonos.map((a) => (
                       <TableRow key={a.id}>
                         <TableCell>{formatDate(a.fecha)}</TableCell>
                         <TableCell>{formatMoney(a.monto)}</TableCell>
-                        <TableCell>{a.numeroCuota ?? "—"}</TableCell>
                         <TableCell>{a.metodoPago || "—"}</TableCell>
+                        <TableCell>{a.recibo || "—"}</TableCell>
+                        <TableCell>{a.usuarioRegistro || "—"}</TableCell>
                       </TableRow>
                     ))}
-                    {historialAbonos.length === 0 && (
+
+                    {abonos.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={4} align="center">
-                          No hay abonos registrados.
+                        <TableCell colSpan={5} align="center">
+                          No hay abonos registrados para este préstamo.
                         </TableCell>
                       </TableRow>
                     )}
@@ -439,91 +361,76 @@ const PrestamoDetallePage: React.FC = () => {
               </TableContainer>
             </Paper>
           </Grid>
+
+          {/* Registrar abono */}
+          <Grid size={{ xs: 12, md: 5 }}>
+            <Paper sx={{ p: 2 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Registrar abono
+              </Typography>
+              <Box
+                component="form"
+                onSubmit={handleRegistrarAbono}
+                sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}
+              >
+                <TextField
+                  label="Monto del abono"
+                  value={montoAbono}
+                  onChange={(e) => setMontoAbono(e.target.value)}
+                  size="small"
+                  fullWidth
+                  inputProps={{ inputMode: "decimal" }}
+                  required
+                />
+                <TextField
+                  label="Fecha del abono"
+                  type="date"
+                  value={fechaAbono}
+                  onChange={(e) => setFechaAbono(e.target.value)}
+                  size="small"
+                  fullWidth
+                  InputLabelProps={{ shrink: true }}
+                />
+                <TextField
+                  label="Método de pago (opcional)"
+                  value={metodoPago}
+                  onChange={(e) => setMetodoPago(e.target.value)}
+                  size="small"
+                  fullWidth
+                  placeholder="Efectivo, transferencia…"
+                />
+                <TextField
+                  label="Observaciones (opcional)"
+                  value={observaciones}
+                  onChange={(e) => setObservaciones(e.target.value)}
+                  size="small"
+                  fullWidth
+                  multiline
+                  minRows={2}
+                />
+
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: 1,
+                    mt: 1,
+                  }}
+                >
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    disabled={savingAbono}
+                  >
+                    {savingAbono ? "Guardando…" : "Guardar abono"}
+                  </Button>
+                </Box>
+              </Box>
+            </Paper>
+          </Grid>
         </Grid>
       </Box>
 
-      {/* Modal Registrar Abono */}
-      <Dialog
-        open={openAbono}
-        onClose={handleCloseAbono}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>Registrar abono</DialogTitle>
-        <DialogContent>
-          <Box
-            component="form"
-            onSubmit={handleSubmitAbono}
-            sx={{ mt: 1, display: "flex", flexDirection: "column", gap: 2 }}
-          >
-            <TextField
-              label="Fecha del abono"
-              type="date"
-              name="fecha"
-              value={abonoForm.fecha}
-              onChange={handleChangeAbono}
-              InputLabelProps={{ shrink: true }}
-              fullWidth
-              size="small"
-            />
-            <TextField
-              label="Monto"
-              name="monto"
-              value={abonoForm.monto}
-              onChange={handleChangeAbono}
-              fullWidth
-              size="small"
-              inputProps={{ inputMode: "decimal" }}
-            />
-            <TextField
-              label="Número de cuota (opcional)"
-              name="numeroCuota"
-              value={abonoForm.numeroCuota}
-              onChange={handleChangeAbono}
-              fullWidth
-              size="small"
-            />
-            <TextField
-              select
-              label="Método de pago"
-              name="metodoPago"
-              value={abonoForm.metodoPago}
-              onChange={handleChangeAbono}
-              fullWidth
-              size="small"
-            >
-              <MenuItem value="EFECTIVO">Efectivo</MenuItem>
-              <MenuItem value="TRANSFERENCIA">Transferencia</MenuItem>
-              <MenuItem value="DEPOSITO">Depósito</MenuItem>
-              <MenuItem value="OTRO">Otro</MenuItem>
-            </TextField>
-            <TextField
-              label="Observaciones (opcional)"
-              name="observaciones"
-              value={abonoForm.observaciones}
-              onChange={handleChangeAbono}
-              fullWidth
-              size="small"
-              multiline
-              minRows={2}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleCloseAbono} disabled={savingAbono}>
-            Cancelar
-          </Button>
-          <Button
-            onClick={handleSubmitAbono}
-            variant="contained"
-            disabled={savingAbono}
-          >
-            {savingAbono ? "Guardando…" : "Guardar"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Snackbar */}
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={2500}
