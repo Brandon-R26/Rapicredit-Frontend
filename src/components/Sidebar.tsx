@@ -20,6 +20,7 @@ const navItems = [
       { label: "Préstamos", href: "/prestamos" },
       { label: "Clientes", href: "/clientes" },
       { label: "Pagos", href: "/pagos" },
+      { label: "Solicitudes", href: "/solicitudes" },
     ],
   },
   {
