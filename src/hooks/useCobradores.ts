@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-// import { apiFetch } from "../lib/api";
+import { apiFetch } from "../lib/api";
 
 export type EstadoCobradorFiltro = "TODOS" | "ACTIVO" | "INACTIVO";
 
@@ -38,12 +38,11 @@ export function useCobradores(filters: CobradoresFilters) {
       setLoading(true);
       setError(null);
       try {
-        // Backend deshabilitado: datos en duro
-        const res: Cobrador[] = [
-          { _id: "cb1", nombreCompleto: "Carlos Gómez", correo: "carlos@demo.com", estado: "ACTIVO" },
-          { _id: "cb2", nombreCompleto: "Ana Rivera", correo: "ana@demo.com", estado: "ACTIVO" },
-        ];
-        if (!cancelled) setData(res);
+        // 🔹 Cuando conectemos backend: GET /cobradores
+        const res = await apiFetch<Cobrador[]>("/cobradores");
+        if (!cancelled) {
+          setData(res || []);
+        }
       } catch (err: any) {
         if (!cancelled) {
           console.error("Error cargando cobradores:", err);
@@ -98,5 +97,5 @@ export function useCobradores(filters: CobradoresFilters) {
     (a.nombreCompleto || "").localeCompare(b.nombreCompleto || "", "es")
   );
 
-  return { data: filtrados, loading, error };
+  return { data: filtrados, loading, error };
 }

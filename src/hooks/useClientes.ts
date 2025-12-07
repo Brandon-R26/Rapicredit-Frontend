@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-// import { apiFetch } from "../lib/api";
+import { apiFetch } from "../lib/api";
 
 export type TipoDocFiltro = "TODOS" | "IDENTIDAD" | "RTN";
 export type EstadoClienteFiltro = "TODOS" | "ACTIVO" | "INACTIVO";
@@ -38,26 +38,11 @@ export function useClientes(filters: ClientesFilters) {
       setLoading(true);
       setError(null);
       try {
-        // Backend deshabilitado: datos en duro
-        const res: Cliente[] = [
-          {
-            _id: "cl1",
-            codigoCliente: "CL-001",
-            identidadCliente: "0801-1990-00000",
-            nombres: "Juan",
-            apellidos: "Pérez",
-            estado: "ACTIVO",
-          },
-          {
-            _id: "cl2",
-            codigoCliente: "CL-002",
-            identidadCliente: "0801-1992-11111",
-            nombres: "María",
-            apellidos: "López",
-            estado: "ACTIVO",
-          },
-        ];
-        if (!cancelled) setData(res);
+        // 🔹 Llama a /clientes – luego conectamos bien con tu backend
+        const res = await apiFetch<Cliente[]>("/clientes");
+        if (!cancelled) {
+          setData(res || []);
+        }
       } catch (err: any) {
         if (!cancelled) {
           console.error("Error cargando clientes:", err);
@@ -115,5 +100,5 @@ export function useClientes(filters: ClientesFilters) {
     return nombreA.localeCompare(nombreB, "es");
   });
 
-  return { data: filtrados, loading, error };
+  return { data: filtrados, loading, error };
 }

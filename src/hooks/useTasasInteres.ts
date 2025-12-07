@@ -6,7 +6,7 @@ import { apiFetch } from "../lib/api";
 export interface TasaInteres {
   _id: string;
   nombre: string;
-  porcentaje?: number;
+  porcentajeInteres?: number;
 }
 
 export function useTasasInteres() {

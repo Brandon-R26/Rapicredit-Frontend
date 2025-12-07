@@ -117,7 +117,7 @@ const NuevoSolicitudPage: React.FC = () => {
       return false;
     }
 
-    if (!selectedFrecuencia?.id) {
+    if (!selectedFrecuencia?._id) {
       setSnackbarSeverity('error');
       setSnackbarMsg('Debes seleccionar una frecuencia de pago.');
       setSnackbarOpen(true);
@@ -332,7 +332,7 @@ const NuevoSolicitudPage: React.FC = () => {
                       value={selectedFrecuencia as any}
                       onChange={(_, val) => setSelectedFrecuencia(val as FrecuenciaPago | null)}
                       getOptionLabel={(option) => (typeof option === 'string' ? option : getFrecuenciaLabel(option as FrecuenciaPago))}
-                      isOptionEqualToValue={(opt, val) => (opt as FrecuenciaPago).id === (val as FrecuenciaPago).id}
+                      isOptionEqualToValue={(opt, val) => (opt as FrecuenciaPago)._id === (val as FrecuenciaPago)._id}
                       renderInput={(params) => (
                         <TextField {...params} label="Frecuencia de pago" placeholder="Selecciona frecuencia…" required />
                       )}
