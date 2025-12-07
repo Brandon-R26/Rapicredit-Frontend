@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { apiFetch } from "../lib/api";
 
 export interface PrestamoCobradorResumen {
   id: string;
@@ -32,7 +33,6 @@ export interface CobradorDetalle {
   estado?: string;
   fechaRegistro?: string;
 
-  // resumen de cartera
   cantidadPrestamos: number;
   saldoCartera: number;
   saldoEnMora: number;
@@ -41,101 +41,132 @@ export interface CobradorDetalle {
   abonosRecientes: AbonoCobradorResumen[];
 }
 
-// Por ahora mock; luego se cambia a apiFetch(`/cobradores/${id}`)
+/**
+ * Espera que el backend tenga algo como:
+ * GET /cobradores/:id
+ * {
+ *   _id, codigo, nombreCompleto, telefono, correo, zona, estado, fechaRegistro,
+ *   prestamos: [...],
+ *   abonosRecientes: [...]
+ * }
+ */
 export function useCobradorDetalle(id: string) {
   const [data, setData] = useState<CobradorDetalle | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
+    let cancelled = false;
 
-    const timeout = setTimeout(() => {
-      const hoy = new Date();
-      const iso = (offsetDias: number) => {
-        const d = new Date(hoy);
-        d.setDate(d.getDate() + offsetDias);
-        return d.toISOString();
-      };
+    async function load() {
+      setLoading(true);
+      try {
+        const res: any = await apiFetch<any>(`/cobradores/${id}`);
+        if (cancelled || !res) return;
 
-      const mock: CobradorDetalle = {
-        id,
-        codigo: "COB-001",
-        nombreCompleto: "María López",
-        telefono: "8888-8888",
-        correo: "maria.lopez@example.com",
-        zona: "Zona Centro",
-        estado: "ACTIVO",
-        fechaRegistro: iso(-90),
+        const prestamosApi = Array.isArray(res.prestamos) ? res.prestamos : [];
+        const abonosApi = Array.isArray(res.abonosRecientes)
+          ? res.abonosRecientes
+          : Array.isArray(res.abonos)
+          ? res.abonos
+          : [];
 
-        cantidadPrestamos: 20,
-        saldoCartera: 21000,
-        saldoEnMora: 5500,
+        const cantidadPrestamos = prestamosApi.length;
+        const saldoCartera = prestamosApi.reduce(
+          (acc: number, p: any) => acc + (p.saldoCapital ?? 0),
+          0
+        );
+        const saldoEnMora = prestamosApi
+          .filter(
+            (p: any) =>
+              (p.estadoFinanciamiento || "").toUpperCase() === "EN_MORA"
+          )
+          .reduce((acc: number, p: any) => acc + (p.saldoCapital ?? 0), 0);
 
-        prestamos: [
-          {
-            id: "F0001",
-            codigoFinanciamiento: "F0001",
-            clienteNombre: "Juan Pérez",
-            zona: "Zona Centro",
-            estadoFinanciamiento: "VIGENTE",
-            saldoCapital: 8500,
-            fechaDesembolso: iso(-40),
-            fechaVencimiento: iso(325),
-          },
-          {
-            id: "F0002",
-            codigoFinanciamiento: "F0002",
-            clienteNombre: "Ana Gómez",
-            zona: "Zona Centro",
-            estadoFinanciamiento: "EN_MORA",
-            saldoCapital: 7000,
-            fechaDesembolso: iso(-60),
-            fechaVencimiento: iso(305),
-          },
-          {
-            id: "F0003",
-            codigoFinanciamiento: "F0003",
-            clienteNombre: "Carlos Ramos",
-            zona: "Zona Norte",
-            estadoFinanciamiento: "VIGENTE",
-            saldoCapital: 5500,
-            fechaDesembolso: iso(-20),
-            fechaVencimiento: iso(345),
-          },
-        ],
-        abonosRecientes: [
-          {
-            id: "AB001",
-            fecha: iso(-2),
-            monto: 700,
-            codigoFinanciamiento: "F0002",
-            clienteNombre: "Ana Gómez",
-            metodoPago: "Efectivo",
-          },
-          {
-            id: "AB002",
-            fecha: iso(-1),
-            monto: 500,
-            codigoFinanciamiento: "F0001",
-            clienteNombre: "Juan Pérez",
-            metodoPago: "Transferencia",
-          },
-          {
-            id: "AB003",
-            fecha: iso(0),
-            monto: 450,
-            codigoFinanciamiento: "F0003",
-            clienteNombre: "Carlos Ramos",
-            metodoPago: "Efectivo",
-          },
-        ],
-      };
+        const prestamos: PrestamoCobradorResumen[] = prestamosApi.map(
+          (p: any) => {
+            const cliente = p.clienteId || p.cliente || {};
+            const nombreCliente =
+              cliente.nombreCompleto ||
+              [cliente.nombres, cliente.apellidos].filter(Boolean).join(" ") ||
+              cliente.razonSocial ||
+              "Cliente";
 
-      setData(mock);
-      setLoading(false);
-    }, 400);
+            return {
+              id: String(p._id ?? p.id ?? ""),
+              codigoFinanciamiento: p.codigoFinanciamiento ?? "",
+              clienteNombre: nombreCliente,
+              zona: p.zona ?? cliente.zona ?? undefined,
+              estadoFinanciamiento: p.estadoFinanciamiento ?? "",
+              saldoCapital: p.saldoCapital ?? 0,
+              fechaDesembolso: p.fechaDesembolso,
+              fechaVencimiento: p.fechaVencimiento,
+            };
+          }
+        );
 
-    return () => clearTimeout(timeout);
+        const abonosRecientes: AbonoCobradorResumen[] = abonosApi.map(
+          (a: any) => {
+            const cliente = a.clienteId || a.cliente || {};
+            const nombreCliente =
+              cliente.nombreCompleto ||
+              [cliente.nombres, cliente.apellidos].filter(Boolean).join(" ") ||
+              "Cliente";
+
+            const financiamiento = a.financiamientoId || a.financiamiento || {};
+
+            return {
+              id: String(a._id ?? a.id ?? ""),
+              fecha: a.fechaAbono ?? a.fecha ?? new Date().toISOString(),
+              monto: a.montoAbono ?? a.monto ?? 0,
+              codigoFinanciamiento:
+                financiamiento.codigoFinanciamiento ??
+                a.codigoFinanciamiento ??
+                "",
+              clienteNombre: nombreCliente,
+              metodoPago: a.metodoPago ?? a.formaPago ?? undefined,
+            };
+          }
+        );
+
+        const detalle: CobradorDetalle = {
+          id: String(res._id ?? res.id ?? id),
+          codigo: res.codigo,
+          nombreCompleto:
+            res.nombreCompleto ||
+            [res.nombres, res.apellidos].filter(Boolean).join(" ") ||
+            "Cobrador",
+          telefono: res.telefono,
+          correo: res.correo,
+          zona: res.zona,
+          estado: res.estado,
+          fechaRegistro: res.fechaRegistro,
+          cantidadPrestamos,
+          saldoCartera,
+          saldoEnMora,
+          prestamos,
+          abonosRecientes,
+        };
+
+        if (!cancelled) {
+          setData(detalle);
+        }
+      } catch (err) {
+        console.error("Error cargando detalle de cobrador:", err);
+        if (!cancelled) {
+          setData(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   return { data, loading };

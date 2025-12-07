@@ -13,6 +13,7 @@ import {
   Alert,
 } from "@mui/material";
 import { useRouter } from "next/navigation";
+import { apiFetch } from "../../../lib/api";
 
 type EstadoCliente = "ACTIVO" | "INACTIVO";
 
@@ -69,32 +70,29 @@ const NuevoClientePage: React.FC = () => {
     return true;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
 
     setSaving(true);
 
-    // DEMO: aquí iría el POST real al backend
-    // apiFetch('/clientes', { method: 'POST', body: JSON.stringify(form) })
-    setTimeout(() => {
-      setSaving(false);
-      setSnackbarSeverity("success");
-      setSnackbarMsg("Cliente registrado (demo, sin backend todavía).");
-      setSnackbarOpen(true);
-
-      // Reset del formulario (en demo). En real, podrías redirigir al perfil.
-      setForm({
-        nombres: "",
-        apellidos: "",
-        identidadCliente: "",
-        RTN: "",
-        telefono: "",
-        correo: "",
-        direccion: "",
-        estado: "ACTIVO",
+    try {
+      await apiFetch("/clientes", {
+        method: "POST",
+        body: JSON.stringify(form),
       });
-    }, 700);
+
+      setSnackbarSeverity("success");
+      setSnackbarMsg("Cliente registrado correctamente.");
+      setSnackbarOpen(true);
+      router.push("/clientes");
+    } catch (err: any) {
+      setSnackbarSeverity("error");
+      setSnackbarMsg("Error al registrar el cliente.");
+      setSnackbarOpen(true);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { apiFetch } from "../lib/api";
 
 export interface ReportesResumen {
   totalCartera: number;
@@ -35,108 +36,52 @@ export interface ReportesData {
   carteraPorCobrador: ReporteCarteraCobrador[];
 }
 
-// Por ahora es mock; luego se reemplaza por llamadas reales al backend
+/**
+ * Llama a: GET /reportes/cartera?fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
+ * y devuelve lo que la página de /reportes ya está esperando.
+ */
 export function useReportes(fechaInicio?: string, fechaFin?: string) {
   const [data, setData] = useState<ReportesData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setLoading(true);
-    setError(null);
+    let cancelled = false;
 
-    // Simulación de llamada async y uso de rango de fechas
-    const timeout = setTimeout(() => {
+    async function load() {
+      setLoading(true);
+      setError(null);
+
       try {
-        const hoy = new Date();
-        const iso = (offsetDias: number) => {
-          const d = new Date(hoy);
-          d.setDate(d.getDate() + offsetDias);
-          return d.toISOString();
-        };
+        const params = new URLSearchParams();
+        if (fechaInicio) params.append("fechaInicio", fechaInicio);
+        if (fechaFin) params.append("fechaFin", fechaFin);
 
-        const mock: ReportesData = {
-          resumen: {
-            totalCartera: 28000,
-            carteraVigente: 18000,
-            carteraEnMora: 8000,
-            carteraPagada: 2000,
-          },
-          moraPorRango: [
-            { rango: "0-7 días", cantidadPrestamos: 5, saldo: 2500 },
-            { rango: "8-30 días", cantidadPrestamos: 8, saldo: 3500 },
-            { rango: "31-60 días", cantidadPrestamos: 3, saldo: 1200 },
-            { rango: "61+ días", cantidadPrestamos: 1, saldo: 800 },
-          ],
-          pagosDiarios: [
-            {
-              fecha: iso(-6),
-              cantidadPagos: 4,
-              totalMonto: 2200,
-            },
-            {
-              fecha: iso(-5),
-              cantidadPagos: 6,
-              totalMonto: 3100,
-            },
-            {
-              fecha: iso(-4),
-              cantidadPagos: 3,
-              totalMonto: 1500,
-            },
-            {
-              fecha: iso(-3),
-              cantidadPagos: 7,
-              totalMonto: 3800,
-            },
-            {
-              fecha: iso(-2),
-              cantidadPagos: 5,
-              totalMonto: 2600,
-            },
-            {
-              fecha: iso(-1),
-              cantidadPagos: 8,
-              totalMonto: 4100,
-            },
-            {
-              fecha: iso(0),
-              cantidadPagos: 2,
-              totalMonto: 900,
-            },
-          ],
-          carteraPorCobrador: [
-            {
-              cobrador: "María López",
-              cantidadPrestamos: 15,
-              saldo: 12000,
-              saldoEnMora: 3000,
-            },
-            {
-              cobrador: "Carlos Díaz",
-              cantidadPrestamos: 10,
-              saldo: 9000,
-              saldoEnMora: 2500,
-            },
-            {
-              cobrador: "Sin asignar",
-              cantidadPrestamos: 4,
-              saldo: 7000,
-              saldoEnMora: 500,
-            },
-          ],
-        };
+        const query = params.toString();
+        const path = query ? `/reportes/cartera?${query}` : "/reportes/cartera";
 
-        setData(mock);
+        const res = await apiFetch<ReportesData>(path);
+
+        if (!cancelled) {
+          setData(res);
+        }
       } catch (err: any) {
-        console.error("Error en reportes mock:", err);
-        setError("Error al cargar reportes");
+        console.error("Error cargando reportes:", err);
+        if (!cancelled) {
+          setError(err.message || "Error al cargar reportes");
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-    }, 400);
+    }
 
-    return () => clearTimeout(timeout);
+    load();
+
+    return () => {
+      cancelled = true;
+    };
   }, [fechaInicio, fechaFin]);
 
   return { data, loading, error };

@@ -3,55 +3,28 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
 
-export type EstadoFiltro = "TODOS" | "VIGENTE" | "EN_MORA" | "PAGADO";
-export type OrdenarPor =
-  | "MAS_RECIENTES"
-  | "MONTO_MAYOR"
-  | "MONTO_MENOR"
-  | "MAYOR_ATRASO";
+export type EstadoPrestamoFiltro = "TODOS" | "VIGENTE" | "EN_MORA" | "PAGADO";
 
-export interface ClienteResumen {
-  _id?: string;
-  codigoCliente?: string;
-  identidadCliente?: string;
-  RTN?: string;
-  nombres?: string;
-  apellidos?: string;
-}
-
-export interface CobradorResumen {
-  _id?: string;
-  nombreCompleto?: string;
-}
-
-export interface SolicitudResumen {
-  _id?: string;
-  finalidadCredito?: string;
-}
-
-export interface Prestamo {
-  _id: string;
-  codigoFinanciamiento?: string;
-  clienteId?: ClienteResumen | null;
-  cobradorAsignadoId?: CobradorResumen | null;
-  solicitudId?: SolicitudResumen | null;
-  capitalInicial?: number;
-  saldoCapital?: number;
-  estadoFinanciamiento?: string;
+export interface PrestamoResumen {
+  id: string;
+  codigoFinanciamiento: string;
+  clienteNombre: string;
+  clienteIdentidad?: string;
+  estadoFinanciamiento: string;
+  capitalInicial: number;
+  saldoCapital: number;
   fechaDesembolso?: string;
   fechaVencimiento?: string;
-  totalMoraPlan?: number;
-  totalPagado?: number;
+  cobradorNombre?: string;
 }
 
 export interface PrestamosFilters {
-  estado: EstadoFiltro;
-  ordenarPor: OrdenarPor;
   busqueda: string;
+  estado: EstadoPrestamoFiltro;
 }
 
 export function usePrestamos(filters: PrestamosFilters) {
-  const [data, setData] = useState<Prestamo[]>([]);
+  const [data, setData] = useState<PrestamoResumen[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,20 +35,46 @@ export function usePrestamos(filters: PrestamosFilters) {
       setLoading(true);
       setError(null);
       try {
-        // 🔹 Traemos TODO de /financiamientos y filtramos en el front
-        const res = await apiFetch<Prestamo[]>("/financiamientos");
-        if (!cancelled) {
-          setData(res || []);
-        }
+        // 👇 Ajusta el path si tu backend usa otro prefijo (/prestamos)
+        const res = await apiFetch<any[]>("/financiamientos");
+
+        if (cancelled) return;
+
+        const mapped: PrestamoResumen[] = (res || []).map((f: any) => {
+          const cliente = f.clienteId || f.cliente || {};
+          const cobrador = f.cobradorId || f.cobrador || {};
+
+          const nombreCliente =
+            cliente.nombreCompleto ||
+            [cliente.nombres, cliente.apellidos].filter(Boolean).join(" ") ||
+            cliente.razonSocial ||
+            "Cliente";
+
+          return {
+            id: String(f._id ?? f.id ?? ""),
+            codigoFinanciamiento: f.codigoFinanciamiento ?? "",
+            clienteNombre: nombreCliente,
+            clienteIdentidad:
+              cliente.identidadCliente ?? cliente.identidad ?? undefined,
+            estadoFinanciamiento: f.estadoFinanciamiento ?? "",
+            capitalInicial: f.capitalInicial ?? 0,
+            saldoCapital: f.saldoCapital ?? 0,
+            fechaDesembolso: f.fechaDesembolso,
+            fechaVencimiento: f.fechaVencimiento,
+            cobradorNombre:
+              cobrador.nombreCompleto ??
+              cobrador.nombre ??
+              cobrador.codigo ??
+              undefined,
+          };
+        });
+
+        setData(mapped);
       } catch (err: any) {
-        if (!cancelled) {
-          console.error("Error cargando préstamos:", err);
-          setError(err.message || "Error al cargar préstamos");
-        }
+        console.error("Error cargando préstamos:", err);
+        if (!cancelled) setError(err.message || "Error al cargar préstamos");
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     }
 
@@ -84,71 +83,33 @@ export function usePrestamos(filters: PrestamosFilters) {
     return () => {
       cancelled = true;
     };
-  }, []); // 👈 solo se llama una vez, filtros se aplican en memoria
+  }, []);
 
-  // 🔹 Aplicamos filtros y orden en el cliente
+  // 🔹 Filtros en memoria
   let filtrados = [...data];
 
-  // Filtro por estado
   if (filters.estado !== "TODOS") {
     filtrados = filtrados.filter(
-      (p) => (p.estadoFinanciamiento || "").toUpperCase() === filters.estado
+      (p) => p.estadoFinanciamiento.toUpperCase() === filters.estado
     );
   }
 
-  // Filtro por búsqueda (código, identidad, nombre)
   if (filters.busqueda.trim()) {
     const q = filters.busqueda.trim().toLowerCase();
     filtrados = filtrados.filter((p) => {
-      const codigo = p.codigoFinanciamiento || "";
-      const cli = p.clienteId || {};
-      const identidad = cli.identidadCliente || "";
-      const codCliente = cli.codigoCliente || "";
-      const nombre = [cli.nombres, cli.apellidos].filter(Boolean).join(" ");
       return (
-        codigo.toLowerCase().includes(q) ||
-        identidad.toLowerCase().includes(q) ||
-        codCliente.toLowerCase().includes(q) ||
-        nombre.toLowerCase().includes(q)
+        p.codigoFinanciamiento.toLowerCase().includes(q) ||
+        p.clienteNombre.toLowerCase().includes(q) ||
+        (p.clienteIdentidad || "").toLowerCase().includes(q)
       );
     });
   }
 
-  // Ordenamiento
+  // Orden por fecha de desembolso (más recientes primero si viene fecha)
   filtrados.sort((a, b) => {
-    const montoA = a.capitalInicial ?? 0;
-    const montoB = b.capitalInicial ?? 0;
-
-    const fechaDesA = a.fechaDesembolso
-      ? new Date(a.fechaDesembolso).getTime()
-      : 0;
-    const fechaDesB = b.fechaDesembolso
-      ? new Date(b.fechaDesembolso).getTime()
-      : 0;
-
-    switch (filters.ordenarPor) {
-      case "MONTO_MAYOR":
-        return montoB - montoA;
-      case "MONTO_MENOR":
-        return montoA - montoB;
-      case "MAYOR_ATRASO": {
-        // muy simple: en mora primero, luego vigentes, luego pagados
-        const ordenEstado = (estado?: string) => {
-          const e = (estado || "").toUpperCase();
-          if (e === "EN_MORA") return 0;
-          if (e === "VIGENTE") return 1;
-          if (e === "PAGADO") return 2;
-          return 3;
-        };
-        return (
-          ordenEstado(a.estadoFinanciamiento) -
-          ordenEstado(b.estadoFinanciamiento)
-        );
-      }
-      case "MAS_RECIENTES":
-      default:
-        return fechaDesB - fechaDesA;
-    }
+    const da = a.fechaDesembolso ? new Date(a.fechaDesembolso).getTime() : 0;
+    const db = b.fechaDesembolso ? new Date(b.fechaDesembolso).getTime() : 0;
+    return db - da;
   });
 
   return { data: filtrados, loading, error };

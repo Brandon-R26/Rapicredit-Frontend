@@ -13,6 +13,7 @@ import {
   Alert,
 } from "@mui/material";
 import { useRouter } from "next/navigation";
+import { apiFetch } from "../../../lib/api";
 
 type FrecuenciaPago = "MENSUAL" | "QUINCENAL" | "SEMANAL" | "DIARIO";
 
@@ -115,23 +116,44 @@ const NuevoPrestamoPage: React.FC = () => {
     form.frecuenciaPago,
   ]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
 
     setSaving(true);
 
-    // DEMO: aquí iría el POST real al backend
-    // await apiFetch('/financiamientos', { method: 'POST', body: JSON.stringify(... )})
-    setTimeout(() => {
-      setSaving(false);
-      setSnackbarSeverity("success");
-      setSnackbarMsg("Préstamo registrado (demo, sin backend todavía).");
-      setSnackbarOpen(true);
+    try {
+      // Armamos el payload que el backend deberá recibir
+      const payload = {
+        clienteRef: form.clienteRef, // luego puedes cambiar a clienteId real
+        producto: form.producto,
+        capitalInicial: Number(form.capitalInicial),
+        plazoMeses: Number(form.plazoMeses),
+        frecuenciaPago: form.frecuenciaPago,
+        tasaInteresAnual: Number(form.tasaInteresAnual),
+        fechaDesembolso: form.fechaDesembolso,
+        fechaPrimerPago: form.fechaPrimerPago || null,
+        cobradorRef: form.cobrador || null,
+        observaciones: form.observaciones || null,
+      };
 
-      // En producción normalmente redirigirías a /prestamos o al detalle
+      await apiFetch("/financiamientos", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      setSnackbarSeverity("success");
+      setSnackbarMsg("Préstamo registrado correctamente.");
+      setSnackbarOpen(true);
       router.push("/prestamos");
-    }, 800);
+    } catch (err: any) {
+      console.error(err);
+      setSnackbarSeverity("error");
+      setSnackbarMsg("Error al registrar el préstamo.");
+      setSnackbarOpen(true);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {
