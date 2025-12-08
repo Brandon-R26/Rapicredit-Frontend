@@ -25,6 +25,13 @@ const navItems = [
     ],
   },
   {
+    section: "Personal",
+    items: [
+      { label: "Empleados", href: "/empleados" },
+      { label: "Cobradores", href: "/cobradores" },
+    ],
+  },
+  {
     section: "Análisis",
     items: [{ label: "Reportes", href: "/reportes" }],
   },
