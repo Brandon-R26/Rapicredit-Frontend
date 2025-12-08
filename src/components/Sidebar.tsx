@@ -28,7 +28,6 @@ const navItems = [
     section: "Personal",
     items: [
       { label: "Empleados", href: "/empleados" },
-      { label: "Cobradores", href: "/cobradores" },
     ],
   },
   {

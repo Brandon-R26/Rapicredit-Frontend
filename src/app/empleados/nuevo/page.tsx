@@ -18,28 +18,65 @@ const NuevoEmpleadoPage: React.FC = () => {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     codigo: "",
-    usuario: "",
     nombreCompleto: "",
     rol: "",
     email: "",
     telefono: "",
+    usuario: "",
     password: "",
     estado: "ACTIVO",
   });
 
+  const validatePassword = (password: string): boolean => {
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasMinLength = password.length >= 8;
+
+    if (!hasMinLength) {
+      setPasswordError("La contraseña debe tener al menos 8 caracteres");
+      return false;
+    }
+    if (!hasUpperCase) {
+      setPasswordError("La contraseña debe contener al menos una mayúscula");
+      return false;
+    }
+    if (!hasNumber) {
+      setPasswordError("La contraseña debe contener al menos un número");
+      return false;
+    }
+    setPasswordError(null);
+    return true;
+  };
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+    
+    if (name === "password") {
+      if (value) {
+        validatePassword(value);
+      } else {
+        setPasswordError(null);
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    // Validar contraseña antes de enviar
+    if (formData.password && !validatePassword(formData.password)) {
+      setLoading(false);
+      return;
+    }
 
     try {
       // 🔹 Llamada al backend para crear empleado
@@ -103,18 +140,6 @@ const NuevoEmpleadoPage: React.FC = () => {
                 fullWidth
                 required
                 variant="outlined"
-                label="Usuario"
-                name="usuario"
-                value={formData.usuario}
-                onChange={handleChange}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                required
-                variant="outlined"
                 label="Nombre Completo"
                 name="nombreCompleto"
                 value={formData.nombreCompleto}
@@ -125,6 +150,7 @@ const NuevoEmpleadoPage: React.FC = () => {
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
+                select
                 required
                 variant="outlined"
                 label="Rol"
@@ -132,7 +158,12 @@ const NuevoEmpleadoPage: React.FC = () => {
                 value={formData.rol}
                 onChange={handleChange}
                 InputLabelProps={{ shrink: true }}
-              />
+              >
+                <MenuItem value="">Seleccione un rol</MenuItem>
+                <MenuItem value="Asesor">Asesor</MenuItem>
+                <MenuItem value="Supervisor">Supervisor</MenuItem>
+                <MenuItem value="Gerente">Gerente</MenuItem>
+              </TextField>
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
@@ -160,19 +191,6 @@ const NuevoEmpleadoPage: React.FC = () => {
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
-                required
-                type="password"
-                variant="outlined"
-                label="Contraseña"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
                 select
                 variant="outlined"
                 label="Estado"
@@ -184,6 +202,33 @@ const NuevoEmpleadoPage: React.FC = () => {
                 <MenuItem value="ACTIVO">Activo</MenuItem>
                 <MenuItem value="INACTIVO">Inactivo</MenuItem>
               </TextField>
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                fullWidth
+                required
+                variant="outlined"
+                label="Usuario"
+                name="usuario"
+                value={formData.usuario}
+                onChange={handleChange}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <TextField
+                fullWidth
+                required
+                type="password"
+                variant="outlined"
+                label="Contraseña"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                InputLabelProps={{ shrink: true }}
+                error={!!passwordError}
+                helperText={passwordError}
+              />
             </Grid>
           </Grid>
 
