@@ -449,12 +449,32 @@ const NuevoClientePage: React.FC = () => {
 
   const handleDocumentosChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
-    handleChange('documentosFotos', files as File[]);
+    setForm((prev) => ({
+      ...prev,
+      documentosFotos: [...prev.documentosFotos, ...(files as File[])],
+    }));
   };
 
   const handleNegocioFotosChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
-    handleChange('negocioFotos', files as File[]);
+    setForm((prev) => ({
+      ...prev,
+      negocioFotos: [...prev.negocioFotos, ...(files as File[])],
+    }));
+  };
+
+  const removeDocumentoFoto = (index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      documentosFotos: prev.documentosFotos.filter((_, i) => i !== index),
+    }));
+  };
+
+  const removeNegocioFoto = (index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      negocioFotos: prev.negocioFotos.filter((_, i) => i !== index),
+    }));
   };
 
   const handleNext = () => {
@@ -1238,7 +1258,20 @@ const NuevoClientePage: React.FC = () => {
                   {form.documentosFotos.length > 0 && (
                     <List dense>
                       {form.documentosFotos.map((f, idx) => (
-                        <ListItem key={idx} sx={{ py: 0 }}>
+                        <ListItem
+                          key={idx}
+                          sx={{ py: 0, display: 'flex', alignItems: 'center' }}
+                          secondaryAction={
+                            <IconButton
+                              edge="end"
+                              aria-label="eliminar"
+                              size="small"
+                              onClick={() => removeDocumentoFoto(idx)}
+                            >
+                              <RemoveCircleOutlineIcon fontSize="small" />
+                            </IconButton>
+                          }
+                        >
                           <ListItemText primary={f.name} />
                         </ListItem>
                       ))}
@@ -1358,7 +1391,20 @@ const NuevoClientePage: React.FC = () => {
                   {form.negocioFotos.length > 0 && (
                     <List dense>
                       {form.negocioFotos.map((f, idx) => (
-                        <ListItem key={idx} sx={{ py: 0 }}>
+                        <ListItem
+                          key={idx}
+                          sx={{ py: 0, display: 'flex', alignItems: 'center' }}
+                          secondaryAction={
+                            <IconButton
+                              edge="end"
+                              aria-label="eliminar"
+                              size="small"
+                              onClick={() => removeNegocioFoto(idx)}
+                            >
+                              <RemoveCircleOutlineIcon fontSize="small" />
+                            </IconButton>
+                          }
+                        >
                           <ListItemText primary={f.name} />
                         </ListItem>
                       ))}
