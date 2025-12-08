@@ -18,14 +18,12 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useRouter } from 'next/navigation';
 // import { apiFetch } from '../../../lib/api';
-import { useClientes, Cliente } from '../../../hooks/useClientes';
+import { useClientes, ClienteResumen } from '../../../hooks/useClientes';
 import { useCobradores, Cobrador } from '../../../hooks/useCobradores';
 import { useTasasInteres, TasaInteres } from '../../../hooks/useTasasInteres';
 import { useFrecuenciasPago, FrecuenciaPago } from '../../../hooks/useFrecuenciasPago';
 
 type EstadoInicial = 'REGISTRADA';
-
-// Campos esenciales del esquema
 
 const NuevoSolicitudPage: React.FC = () => {
   const router = useRouter();
@@ -43,36 +41,48 @@ const NuevoSolicitudPage: React.FC = () => {
   // Cargar opciones de clientes y cobradores
   const { data: clientes, loading: loadingClientes } = useClientes({
     busqueda: '',
-    tipoDoc: 'TODOS',
     estado: 'ACTIVO',
   });
-  const { data: cobradores, loading: loadingCobradores } = useCobradores({ busqueda: '', estado: 'ACTIVO', zona: '' });
+
+  const { data: cobradores, loading: loadingCobradores } = useCobradores({
+    busqueda: '',
+    estado: 'ACTIVO',
+    zona: '',
+  });
+
   const { data: tasas, loading: loadingTasas } = useTasasInteres();
   const { data: frecuencias } = useFrecuenciasPago();
 
-  const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
+  const [selectedCliente, setSelectedCliente] = useState<ClienteResumen | null>(null);
   const [selectedCobrador, setSelectedCobrador] = useState<Cobrador | null>(null);
   const [selectedTasa, setSelectedTasa] = useState<TasaInteres | null>(null);
   const [selectedFrecuencia, setSelectedFrecuencia] = useState<FrecuenciaPago | null>(null);
 
   // Etiquetas de opción
-  const getClienteLabel = (c: Cliente | null) => {
+  const getClienteLabel = (c: ClienteResumen | null) => {
     if (!c) return '';
-    const nombre = [c.nombres, c.apellidos].filter(Boolean).join(' ');
-    return [c.codigoCliente, nombre, c.identidadCliente].filter(Boolean).join(' • ');
+    // nombreCompleto ya viene armado del hook
+    return [c.codigoCliente, c.nombreCompleto, c.identidadCliente]
+      .filter(Boolean)
+      .join(' • ');
   };
+
   const getCobradorLabel = (v: Cobrador | null) => {
     if (!v) return '';
     return [v.nombreCompleto, v.correo].filter(Boolean).join(' • ');
   };
+
   const getTasaLabel = (t: TasaInteres | null) => {
     if (!t) return '';
     const pct = t.porcentajeInteres != null ? `${t.porcentajeInteres}%` : undefined;
     return pct ? `${t.nombre} - ${pct}` : t.nombre;
   };
+
   const getFrecuenciaLabel = (f: FrecuenciaPago | null) => {
     if (!f) return '';
-    return [f.nombre, f.dias != null ? `${f.dias} días` : undefined].filter(Boolean).join(' • ');
+    return [f.nombre, f.dias != null ? `${f.dias} días` : undefined]
+      .filter(Boolean)
+      .join(' • ');
   };
 
   const [saving, setSaving] = useState(false);
@@ -89,7 +99,7 @@ const NuevoSolicitudPage: React.FC = () => {
   };
 
   const validate = () => {
-    if (!selectedCliente?._id) {
+    if (!selectedCliente?.id) {
       setSnackbarSeverity('error');
       setSnackbarMsg('Debes seleccionar un cliente.');
       setSnackbarOpen(true);
@@ -124,9 +134,7 @@ const NuevoSolicitudPage: React.FC = () => {
       return false;
     }
 
-
     return true;
-    
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -138,7 +146,8 @@ const NuevoSolicitudPage: React.FC = () => {
     try {
       const payload = {
         // Enviar IDs directos según el esquema
-        clienteId: selectedCliente?._id,
+        // OJO: useClientes ya mapea id = _id del backend si existe
+        clienteId: selectedCliente?.id,
         cobradorId: selectedCobrador?._id,
         capitalSolicitado: Number(form.capitalSolicitado),
         plazoCuotas: form.plazoCuotas ? Number(form.plazoCuotas) : null,
@@ -208,38 +217,64 @@ const NuevoSolicitudPage: React.FC = () => {
           >
             <Grid container spacing={2}>
               {/* Cliente y cobrador */}
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Autocomplete
                   size="small"
                   options={clientes}
                   loading={loadingClientes}
                   value={selectedCliente}
-                  onChange={(_, val) => setSelectedCliente(val as Cliente | null)}
-                  getOptionLabel={(option) => (typeof option === 'string' ? option : getClienteLabel(option as Cliente))}
-                  isOptionEqualToValue={(opt, val) => (opt as Cliente)._id === (val as Cliente)._id}
+                  onChange={(_, val) =>
+                    setSelectedCliente(val as ClienteResumen | null)
+                  }
+                  getOptionLabel={(option) =>
+                    typeof option === 'string'
+                      ? option
+                      : getClienteLabel(option as ClienteResumen)
+                  }
+                  isOptionEqualToValue={(opt, val) =>
+                    (opt as ClienteResumen).id === (val as ClienteResumen).id
+                  }
                   renderInput={(params) => (
-                    <TextField {...params} label="Cliente" placeholder="Buscar cliente…" required />
+                    <TextField
+                      {...params}
+                      label="Cliente"
+                      placeholder="Buscar cliente…"
+                      required
+                    />
                   )}
                 />
               </Grid>
 
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Autocomplete
                   size="small"
                   options={cobradores}
                   loading={loadingCobradores}
                   value={selectedCobrador as unknown}
-                  onChange={(_, val) => setSelectedCobrador(val as Cobrador | null)}
-                  getOptionLabel={(option) => (typeof option === 'string' ? option : getCobradorLabel(option as Cobrador))}
-                  isOptionEqualToValue={(opt, val) => (opt as Cobrador)._id === (val as Cobrador)._id}
+                  onChange={(_, val) =>
+                    setSelectedCobrador(val as Cobrador | null)
+                  }
+                  getOptionLabel={(option) =>
+                    typeof option === 'string'
+                      ? option
+                      : getCobradorLabel(option as Cobrador)
+                  }
+                  isOptionEqualToValue={(opt, val) =>
+                    (opt as Cobrador)._id === (val as Cobrador)._id
+                  }
                   renderInput={(params) => (
-                    <TextField {...params} label="Cobrador" placeholder="Buscar cobrador…" required />
+                    <TextField
+                      {...params}
+                      label="Cobrador"
+                      placeholder="Buscar cobrador…"
+                      required
+                    />
                   )}
                 />
               </Grid>
 
               {/* Capital y plazo */}
-              <Grid size={{ xs: 12, sm: 4 }}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <TextField
                   label="Capital solicitado"
                   name="capitalSolicitado"
@@ -251,7 +286,7 @@ const NuevoSolicitudPage: React.FC = () => {
                   required
                 />
               </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <TextField
                   label="Plazo en cuotas"
                   name="plazoCuotas"
@@ -263,7 +298,7 @@ const NuevoSolicitudPage: React.FC = () => {
                   placeholder="Opcional"
                 />
               </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <TextField
                   label="Finalidad del crédito"
                   name="finalidadCredito"
@@ -276,7 +311,7 @@ const NuevoSolicitudPage: React.FC = () => {
               </Grid>
 
               {/* Fecha y comentario */}
-              <Grid size={{ xs: 12, sm: 4 }}>
+              <Grid size={{ xs: 12, sm: 4 }}>
                 <TextField
                   label="Fecha de solicitud"
                   type="date"
@@ -307,7 +342,9 @@ const NuevoSolicitudPage: React.FC = () => {
             {/* Parámetros financieros (combobox) */}
             <Accordion>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                <Typography variant="subtitle2">Parámetros financieros</Typography>
+                <Typography variant="subtitle2">
+                  Parámetros financieros
+                </Typography>
               </AccordionSummary>
               <AccordionDetails>
                 <Grid container spacing={2}>
@@ -317,11 +354,25 @@ const NuevoSolicitudPage: React.FC = () => {
                       options={tasas}
                       loading={loadingTasas}
                       value={selectedTasa as any}
-                      onChange={(_, val) => setSelectedTasa(val as TasaInteres | null)}
-                      getOptionLabel={(option) => (typeof option === 'string' ? option : getTasaLabel(option as TasaInteres))}
-                      isOptionEqualToValue={(opt, val) => (opt as TasaInteres)._id === (val as TasaInteres)._id}
+                      onChange={(_, val) =>
+                        setSelectedTasa(val as TasaInteres | null)
+                      }
+                      getOptionLabel={(option) =>
+                        typeof option === 'string'
+                          ? option
+                          : getTasaLabel(option as TasaInteres)
+                      }
+                      isOptionEqualToValue={(opt, val) =>
+                        (opt as TasaInteres)._id ===
+                        (val as TasaInteres)._id
+                      }
                       renderInput={(params) => (
-                        <TextField {...params} label="Tasa de interés" placeholder="Selecciona tasa…" required />
+                        <TextField
+                          {...params}
+                          label="Tasa de interés"
+                          placeholder="Selecciona tasa…"
+                          required
+                        />
                       )}
                     />
                   </Grid>
@@ -330,11 +381,25 @@ const NuevoSolicitudPage: React.FC = () => {
                       size="small"
                       options={frecuencias}
                       value={selectedFrecuencia as any}
-                      onChange={(_, val) => setSelectedFrecuencia(val as FrecuenciaPago | null)}
-                      getOptionLabel={(option) => (typeof option === 'string' ? option : getFrecuenciaLabel(option as FrecuenciaPago))}
-                      isOptionEqualToValue={(opt, val) => (opt as FrecuenciaPago)._id === (val as FrecuenciaPago)._id}
+                      onChange={(_, val) =>
+                        setSelectedFrecuencia(val as FrecuenciaPago | null)
+                      }
+                      getOptionLabel={(option) =>
+                        typeof option === 'string'
+                          ? option
+                          : getFrecuenciaLabel(option as FrecuenciaPago)
+                      }
+                      isOptionEqualToValue={(opt, val) =>
+                        (opt as FrecuenciaPago)._id ===
+                        (val as FrecuenciaPago)._id
+                      }
                       renderInput={(params) => (
-                        <TextField {...params} label="Frecuencia de pago" placeholder="Selecciona frecuencia…" required />
+                        <TextField
+                          {...params}
+                          label="Frecuencia de pago"
+                          placeholder="Selecciona frecuencia…"
+                          required
+                        />
                       )}
                     />
                   </Grid>

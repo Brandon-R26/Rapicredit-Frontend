@@ -1,38 +1,39 @@
-"use client";
+// src/app/clientes/[id]/page.tsx
+'use client';
 
-import React from "react";
-import { useParams } from "next/navigation";
+import React from 'react';
+import { useParams } from 'next/navigation';
 import {
   Box,
   Grid,
   Paper,
   Typography,
   Chip,
-  Button,
-  TableContainer,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
   CircularProgress,
-} from "@mui/material";
-import Link from "next/link";
-import { useClienteDetalle } from "../../../hooks/useClienteDetalle";
+  List,
+  ListItem,
+  ListItemText,
+  Button,
+} from '@mui/material';
+import Link from 'next/link';
+import { useClienteDetalle } from '../../../hooks/useClienteDetalle';
 
 const ClienteDetallePage: React.FC = () => {
   const params = useParams();
   const id = params?.id as string;
-  const { data, loading } = useClienteDetalle(id);
+  const { data, loading, error } = useClienteDetalle(id);
 
-  if (loading || !data) {
+  const formatDate = (iso?: string) =>
+    iso ? new Date(iso).toLocaleDateString('es-HN') : '-';
+
+  if (loading && !data) {
     return (
       <Box
         sx={{
-          display: "flex",
-          height: "100%",
-          alignItems: "center",
-          justifyContent: "center",
+          display: 'flex',
+          height: '100%',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
         <CircularProgress size={28} />
@@ -40,283 +41,385 @@ const ClienteDetallePage: React.FC = () => {
     );
   }
 
+  if (error) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Typography color="error" variant="body2">
+          {error}
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (!data) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Typography variant="body2">
+          No se pudo cargar la información del cliente.
+        </Typography>
+      </Box>
+    );
+  }
+
   const {
     codigoCliente,
+    nombreCompleto,
     identidadCliente,
-    RTN,
-    nombres,
-    apellidos,
+    email,
     telefono,
+    actividad,
+    nacionalidad,
+    RTN,
+    estadoCivil,
+    nivelEducativo,
+    sexo,
+    fechaNacimiento,
+
+    departamentoResidencia,
+    municipioResidencia,
+    zonaResidencialCliente,
     direccion,
-    correo,
-    estado,
-    fechaRegistro,
-    totalPrestamos,
-    prestamosActivos,
-    prestamosEnMora,
-    saldoTotal,
-    prestamos,
-    abonosRecientes,
+    tipoVivienda,
+    antiguedadVivenda,
+
+    conyugeNombre,
+    conyugeTelefono,
+
+    limiteCredito,
+    tasaCliente,
+    frecuenciaPago,
+    estadoDeuda,
+    referencias,
+
+    negocioNombre,
+    negocioTipo,
+    negocioTelefono,
+    negocioDireccion,
+
+    documentosFotos,
+    negocioFotos,
   } = data;
 
-  const nombreCompleto =
-    [nombres, apellidos].filter(Boolean).join(" ") || "Cliente";
-
-  const formatDate = (iso?: string) =>
-    iso ? new Date(iso).toLocaleDateString("es-HN") : "-";
-
-  const formatMoney = (v?: number) =>
-    v != null
-      ? `L. ${v.toLocaleString("es-HN", { minimumFractionDigits: 2 })}`
-      : "L. 0.00";
-
-  const renderEstadoChip = () => {
-    const val = (estado || "").toUpperCase();
-    let color: "default" | "success" | "warning" | "error" = "default";
-
-    if (val === "ACTIVO") color = "success";
-    else if (val === "INACTIVO") color = "warning";
-    else if (val === "MOROSO") color = "error";
-
-    return (
-      <Chip size="small" label={val || "—"} color={color} variant="outlined" />
-    );
-  };
-
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {/* Header */}
       <Box
         sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: { xs: "flex-start", sm: "center" },
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: { xs: 'flex-start', sm: 'center' },
           gap: 1,
         }}
       >
         <Box>
-          <Typography variant="h6">{nombreCompleto}</Typography>
-          <Box sx={{ display: "flex", gap: 1, alignItems: "center", mt: 0.5 }}>
-            {renderEstadoChip()}
-            <Typography variant="caption" color="text.secondary">
-              Código: {codigoCliente || "—"} · Registrado:{" "}
-              {fechaRegistro ? formatDate(fechaRegistro) : "-"}
-            </Typography>
-          </Box>
+          <Typography variant="h6">
+            Cliente {codigoCliente || ''}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {nombreCompleto}
+          </Typography>
         </Box>
 
-        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-          <Button
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Chip
             size="small"
-            variant="contained"
-            component={Link}
-            href="/prestamos/nuevo"
-          >
-            Nuevo préstamo
-          </Button>
-          <Button size="small" variant="outlined">
-            Editar cliente
+            label={actividad ? 'ACTIVO' : 'INACTIVO'}
+            color={actividad ? 'success' : 'default'}
+            variant="outlined"
+          />
+          <Button size="small" variant="outlined" component={Link} href="/clientes">
+            Volver a lista
           </Button>
         </Box>
       </Box>
 
+      {/* Datos principales */}
       <Grid container spacing={2}>
-        {/* Datos personales */}
-        <Grid size={{ xs: 12, md: 7 }}>
+        {/* Info personal */}
+        <Grid size={{ xs: 12, sm: 6 }}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Datos personales
+              Información personal
             </Typography>
             <Grid container spacing={1}>
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 6 }}>
                 <Typography variant="caption" color="text.secondary">
                   Nombre completo
                 </Typography>
                 <Typography>{nombreCompleto}</Typography>
               </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <Typography variant="caption" color="text.secondary">
-                  Código
-                </Typography>
-                <Typography>{codigoCliente || "—"}</Typography>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 6 }}>
                 <Typography variant="caption" color="text.secondary">
                   Identidad
                 </Typography>
-                <Typography>{identidadCliente || "—"}</Typography>
+                <Typography>{identidadCliente}</Typography>
               </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 6 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Nacionalidad
+                </Typography>
+                <Typography>{nacionalidad}</Typography>
+              </Grid>
+              <Grid size={{ xs: 6 }}>
                 <Typography variant="caption" color="text.secondary">
                   RTN
                 </Typography>
-                <Typography>{RTN || "—"}</Typography>
+                <Typography>{RTN || 'No registrado'}</Typography>
               </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 6 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Teléfono
+                  Estado civil
                 </Typography>
-                <Typography>{telefono || "—"}</Typography>
+                <Typography>{estadoCivil}</Typography>
               </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Grid size={{ xs: 6 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Correo
+                  Nivel educativo
                 </Typography>
-                <Typography>{correo || "—"}</Typography>
+                <Typography>{nivelEducativo}</Typography>
               </Grid>
-              <Grid size={{ xs: 12 }}>
+              <Grid size={{ xs: 6 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Dirección
+                  Sexo
                 </Typography>
-                <Typography>{direccion || "—"}</Typography>
+                <Typography>{sexo}</Typography>
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Fecha nacimiento
+                </Typography>
+                <Typography>{formatDate(fechaNacimiento)}</Typography>
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Email
+                </Typography>
+                <Typography>{email}</Typography>
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Teléfonos
+                </Typography>
+                <List dense>
+                  {telefono.map((t, idx) => (
+                    <ListItem key={idx} sx={{ py: 0 }}>
+                      <ListItemText primary={t} />
+                    </ListItem>
+                  ))}
+                  {telefono.length === 0 && (
+                    <ListItem sx={{ py: 0 }}>
+                      <ListItemText primary="Sin teléfonos registrados" />
+                    </ListItem>
+                  )}
+                </List>
               </Grid>
             </Grid>
           </Paper>
         </Grid>
 
-        {/* Resumen financiero */}
-        <Grid size={{ xs: 12, md: 5 }}>
-          <Paper sx={{ p: 2 }}>
+        {/* Dirección / vivienda / cónyuge */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <Paper sx={{ p: 2, mb: 2 }}>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Resumen financiero
+              Dirección y vivienda
             </Typography>
             <Grid container spacing={1}>
-              <Grid size={{ xs: 6 }}>
+              <Grid size={{ xs: 6 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Total de préstamos
+                  Departamento
                 </Typography>
-                <Typography>{totalPrestamos}</Typography>
+                <Typography>{departamentoResidencia}</Typography>
               </Grid>
-              <Grid size={{ xs: 6 }}>
+              <Grid size={{ xs: 6 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Préstamos activos
+                  Municipio
                 </Typography>
-                <Typography>{prestamosActivos}</Typography>
+                <Typography>{municipioResidencia}</Typography>
               </Grid>
-              <Grid size={{ xs: 6 }}>
+              <Grid size={{ xs: 12 }}>
                 <Typography variant="caption" color="text.secondary">
-                  En mora
+                  Zona residencial
                 </Typography>
-                <Typography>{prestamosEnMora}</Typography>
+                <Typography>{zonaResidencialCliente}</Typography>
               </Grid>
-              <Grid size={{ xs: 6 }}>
+              <Grid size={{ xs: 12 }}>
                 <Typography variant="caption" color="text.secondary">
-                  Saldo total
+                  Dirección
                 </Typography>
-                <Typography>{formatMoney(saldoTotal)}</Typography>
+                <Typography>{direccion}</Typography>
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Tipo de vivienda
+                </Typography>
+                <Typography>{tipoVivienda}</Typography>
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Antigüedad vivienda (años)
+                </Typography>
+                <Typography>{antiguedadVivenda}</Typography>
+              </Grid>
+            </Grid>
+          </Paper>
+
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              Datos del cónyuge
+            </Typography>
+            <Grid container spacing={1}>
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Nombre
+                </Typography>
+                <Typography>{conyugeNombre || 'No registrado'}</Typography>
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Teléfono
+                </Typography>
+                <Typography>{conyugeTelefono || 'No registrado'}</Typography>
               </Grid>
             </Grid>
           </Paper>
         </Grid>
       </Grid>
 
-      {/* Préstamos del cliente y abonos recientes */}
+      {/* Financieros / referencias / negocio */}
       <Grid container spacing={2}>
-        <Grid size={{ xs: 12, md: 7 }}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Préstamos del cliente
+              Información financiera
             </Typography>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Código</TableCell>
-                    <TableCell>Producto</TableCell>
-                    <TableCell>Monto</TableCell>
-                    <TableCell>Saldo</TableCell>
-                    <TableCell>Estado</TableCell>
-                    <TableCell>Desembolso</TableCell>
-                    <TableCell>Vencimiento</TableCell>
-                    <TableCell></TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {prestamos.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell>{p.codigoFinanciamiento}</TableCell>
-                      <TableCell>{p.producto || "Crédito"}</TableCell>
-                      <TableCell>
-                        {formatMoney(p.capitalInicial ?? 0)}
-                      </TableCell>
-                      <TableCell>{formatMoney(p.saldoCapital ?? 0)}</TableCell>
-                      <TableCell>
-                        <Chip
-                          size="small"
-                          label={p.estadoFinanciamiento}
-                          color={
-                            p.estadoFinanciamiento === "EN_MORA"
-                              ? "error"
-                              : p.estadoFinanciamiento === "PAGADO"
-                              ? "success"
-                              : "info"
-                          }
-                          variant="outlined"
-                        />
-                      </TableCell>
-                      <TableCell>{formatDate(p.fechaDesembolso)}</TableCell>
-                      <TableCell>{formatDate(p.fechaVencimiento)}</TableCell>
-                      <TableCell>
-                        <Button
-                          size="small"
-                          variant="text"
-                          component={Link}
-                          href={`/prestamos/${p.id}`}
-                        >
-                          Ver
-                        </Button>
-                      </TableCell>
-                    </TableRow>
+            <Grid container spacing={1}>
+              <Grid size={{ xs: 6 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Límite de crédito
+                </Typography>
+                <Typography>
+                  L.{' '}
+                  {limiteCredito.toLocaleString('es-HN', {
+                    minimumFractionDigits: 2,
+                  })}
+                </Typography>
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Tasa cliente
+                </Typography>
+                <Typography>{tasaCliente}%</Typography>
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Frecuencia de pago
+                </Typography>
+                <Typography>{frecuenciaPago}</Typography>
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Estado de deuda
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                  {estadoDeuda.map((e, idx) => (
+                    <Chip key={idx} size="small" label={e} variant="outlined" />
                   ))}
-
-                  {prestamos.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={8} align="center">
-                        No hay préstamos registrados para este cliente.
-                      </TableCell>
-                    </TableRow>
+                  {estadoDeuda.length === 0 && (
+                    <Typography variant="body2">Sin estado registrado</Typography>
                   )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                </Box>
+              </Grid>
+            </Grid>
+          </Paper>
+
+          <Paper sx={{ p: 2, mt: 2 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              Referencias
+            </Typography>
+            <List dense>
+              {referencias.map((r, idx) => (
+                <ListItem key={idx} sx={{ py: 0 }}>
+                  <ListItemText primary={r} />
+                </ListItem>
+              ))}
+              {referencias.length === 0 && (
+                <ListItem sx={{ py: 0 }}>
+                  <ListItemText primary="Sin referencias registradas" />
+                </ListItem>
+              )}
+            </List>
           </Paper>
         </Grid>
 
-        <Grid size={{ xs: 12, md: 5 }}>
-          <Paper sx={{ p: 2, height: "100%" }}>
+        {/* Negocio y documentos */}
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <Paper sx={{ p: 2, mb: 2 }}>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Abonos recientes
+              Datos del negocio
             </Typography>
-            <TableContainer sx={{ maxHeight: 320 }}>
-              <Table size="small" stickyHeader>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Fecha</TableCell>
-                    <TableCell>Monto</TableCell>
-                    <TableCell>Préstamo</TableCell>
-                    <TableCell>Método</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {abonosRecientes.map((a) => (
-                    <TableRow key={a.id}>
-                      <TableCell>{formatDate(a.fecha)}</TableCell>
-                      <TableCell>{formatMoney(a.monto)}</TableCell>
-                      <TableCell>{a.codigoFinanciamiento}</TableCell>
-                      <TableCell>{a.metodoPago || "—"}</TableCell>
-                    </TableRow>
-                  ))}
+            <Grid container spacing={1}>
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Nombre del negocio
+                </Typography>
+                <Typography>{negocioNombre || 'No registrado'}</Typography>
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Tipo de negocio
+                </Typography>
+                <Typography>{negocioTipo || 'No registrado'}</Typography>
+              </Grid>
+              <Grid size={{ xs: 6 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Teléfono del negocio
+                </Typography>
+                <Typography>{negocioTelefono || 'No registrado'}</Typography>
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Dirección del negocio
+                </Typography>
+                <Typography>{negocioDireccion || 'No registrada'}</Typography>
+              </Grid>
+            </Grid>
+          </Paper>
 
-                  {abonosRecientes.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={4} align="center">
-                        No hay abonos registrados para este cliente.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+          <Paper sx={{ p: 2 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              Fotografías
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Documentos
+            </Typography>
+            <List dense>
+              {(documentosFotos || []).map((f, idx) => (
+                <ListItem key={idx} sx={{ py: 0 }}>
+                  <ListItemText primary={f} />
+                </ListItem>
+              ))}
+              {(!documentosFotos || documentosFotos.length === 0) && (
+                <ListItem sx={{ py: 0 }}>
+                  <ListItemText primary="Sin fotos de documentos" />
+                </ListItem>
+              )}
+
+            </List>
+            <Typography variant="caption" color="text.secondary">
+              Negocio
+            </Typography>
+            <List dense>
+              {(negocioFotos || []).map((f, idx) => (
+                <ListItem key={idx} sx={{ py: 0 }}>
+                  <ListItemText primary={f} />
+                </ListItem>
+              ))}
+              {(!negocioFotos || negocioFotos.length === 0) && (
+                <ListItem sx={{ py: 0 }}>
+                  <ListItemText primary="Sin fotos del negocio" />
+                </ListItem>
+              )}
+            </List>
           </Paper>
         </Grid>
       </Grid>

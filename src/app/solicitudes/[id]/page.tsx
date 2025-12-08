@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import {
   Box,
@@ -16,18 +16,45 @@ import {
   TableCell,
   TableBody,
   Button,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
 } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import Link from 'next/link';
-import { useSolicitudDetalle } from '../../../hooks/useSolicitudDetalle';
+import { apiFetch } from '../../../lib/api';
+
+interface SolicitudClienteRef {
+  id: string;
+  codigoCliente: string;
+  nombreCompleto: string;
+  identidadCliente?: string;
+}
+
+interface SolicitudHistorialItem {
+  id: string;
+  fecha?: string;
+  accion: string;
+  usuario?: string;
+  comentario?: string;
+}
+
+interface SolicitudDetalle {
+  id: string;
+  codigoSolicitud: string;
+  fechaSolicitud?: string;
+  capitalSolicitado?: number;   // mapeamos también montoSolicitado
+  plazoCuotas?: number | null;  // mapeamos también plazoMeses
+  finalidadCredito?: string | null; // mapeamos también producto
+  estadoSolicitud: string;
+  observaciones?: string | null; // mapeamos también comentario
+  cliente?: SolicitudClienteRef | null;
+  historial?: SolicitudHistorialItem[];
+}
 
 const SolicitudDetallePage: React.FC = () => {
   const params = useParams();
   const id = params?.id as string;
-  const { data, loading, error } = useSolicitudDetalle(id);
+
+  const [data, setData] = useState<SolicitudDetalle | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
   const formatMoney = (v?: number) =>
     v != null
@@ -38,7 +65,7 @@ const SolicitudDetallePage: React.FC = () => {
     iso ? new Date(iso).toLocaleDateString('es-HN') : '-';
 
   const renderEstadoChip = (estado: string) => {
-    const val = estado.toUpperCase();
+    const val = (estado || '').toUpperCase();
     let color: 'default' | 'success' | 'warning' | 'error' | 'info' = 'info';
 
     if (val === 'REGISTRADA') color = 'info';
@@ -50,6 +77,80 @@ const SolicitudDetallePage: React.FC = () => {
       <Chip size="small" label={val || '—'} color={color} variant="outlined" />
     );
   };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res: any = await apiFetch(`/solicitudes/${id}`);
+
+        if (cancelled || !res) return;
+
+        const cliente: SolicitudClienteRef | null = res.cliente
+          ? {
+              id: String(res.cliente.id ?? res.cliente._id ?? ''),
+              codigoCliente: res.cliente.codigoCliente ?? '',
+              nombreCompleto:
+                res.cliente.nombreCompleto ??
+                [res.cliente.nombre, res.cliente.apellido]
+                  .filter(Boolean)
+                  .join(' ') ??
+                'Cliente',
+              identidadCliente: res.cliente.identidadCliente ?? undefined,
+            }
+          : null;
+
+        const historial: SolicitudHistorialItem[] = Array.isArray(res.historial)
+          ? res.historial.map((h: any, idx: number) => ({
+              id: String(h.id ?? h._id ?? idx),
+              fecha: h.fecha,
+              accion: h.accion ?? '',
+              usuario: h.usuario ?? undefined,
+              comentario: h.comentario ?? undefined,
+            }))
+          : [];
+
+        const detalle: SolicitudDetalle = {
+          id: String(res._id ?? res.id ?? id),
+          codigoSolicitud: res.codigoSolicitud ?? '',
+          fechaSolicitud: res.fechaSolicitud,
+
+          // Soporta tanto los nombres viejos como los nuevos
+          capitalSolicitado:
+            res.capitalSolicitado ?? res.montoSolicitado ?? 0,
+          plazoCuotas: res.plazoCuotas ?? res.plazoMeses ?? null,
+          finalidadCredito: res.finalidadCredito ?? res.producto ?? null,
+          estadoSolicitud: res.estadoSolicitud ?? res.estado ?? 'REGISTRADA',
+          observaciones: res.observaciones ?? res.comentario ?? null,
+
+          cliente,
+          historial,
+        };
+
+        if (!cancelled) {
+          setData(detalle);
+        }
+      } catch (err: any) {
+        console.error('Error cargando solicitud:', err);
+        if (!cancelled) {
+          setError(err.message || 'Error al cargar la solicitud.');
+          setData(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   if (loading && !data) {
     return (
@@ -89,11 +190,11 @@ const SolicitudDetallePage: React.FC = () => {
   const {
     codigoSolicitud,
     fechaSolicitud,
-    montoSolicitado,
-    plazoMeses,
-    producto,
+    capitalSolicitado,
+    plazoCuotas,
+    finalidadCredito,
     estadoSolicitud,
-    comentario,
+    observaciones,
     cliente,
     historial,
   } = data;
@@ -142,35 +243,35 @@ const SolicitudDetallePage: React.FC = () => {
 
       {/* Datos principales */}
       <Grid container spacing={2}>
-        <Grid size={{ xs: 12, sm: 6 }}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <Paper sx={{ p: 2 }}>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
               Datos de la solicitud
             </Typography>
             <Grid container spacing={1}>
-              <Grid size={{ xs: 6 }}>
+              <Grid size={{ xs: 6 }}>
                 <Typography variant="caption" color="text.secondary">
                   Capital solicitado
                 </Typography>
-                <Typography>{formatMoney(montoSolicitado)}</Typography>
+                <Typography>{formatMoney(capitalSolicitado)}</Typography>
               </Grid>
-              <Grid size={{ xs: 6 }}>
+              <Grid size={{ xs: 6 }}>
                 <Typography variant="caption" color="text.secondary">
                   Finalidad del crédito
                 </Typography>
-                <Typography>{producto || '—'}</Typography>
+                <Typography>{finalidadCredito || '—'}</Typography>
               </Grid>
-              <Grid size={{ xs: 6 }}>
+              <Grid size={{ xs: 6 }}>
                 <Typography variant="caption" color="text.secondary">
                   Plazo (cuotas)
                 </Typography>
-                <Typography>{plazoMeses ?? '—'}</Typography>
+                <Typography>{plazoCuotas ?? '—'}</Typography>
               </Grid>
               <Grid size={{ xs: 12 }}>
                 <Typography variant="caption" color="text.secondary">
                   Observaciones
                 </Typography>
-                <Typography>{comentario || '—'}</Typography>
+                <Typography>{observaciones || '—'}</Typography>
               </Grid>
             </Grid>
           </Paper>
@@ -183,13 +284,13 @@ const SolicitudDetallePage: React.FC = () => {
             </Typography>
             {cliente ? (
               <Grid container spacing={1}>
-                <Grid size={{ xs: 6 }}>
+                <Grid size={{ xs: 6 }}>
                   <Typography variant="caption" color="text.secondary">
                     Nombre
                   </Typography>
                   <Typography>{cliente.nombreCompleto}</Typography>
                 </Grid>
-                <Grid size={{ xs: 6 }}>
+                <Grid size={{ xs: 6 }}>
                   <Typography variant="caption" color="text.secondary">
                     Identidad
                   </Typography>
@@ -197,7 +298,7 @@ const SolicitudDetallePage: React.FC = () => {
                     {cliente.identidadCliente || 'No registrada'}
                   </Typography>
                 </Grid>
-                <Grid size={{ xs: 6 }}>
+                <Grid size={{ xs: 6 }}>
                   <Typography variant="caption" color="text.secondary">
                     Código cliente
                   </Typography>

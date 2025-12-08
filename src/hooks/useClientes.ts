@@ -1,33 +1,30 @@
-"use client";
+// src/hooks/useClientes.ts
+'use client';
 
-import { useEffect, useState } from "react";
-import { apiFetch } from "../lib/api";
+import { useEffect, useState } from 'react';
+import { apiFetch } from '../lib/api';
 
-export type TipoDocFiltro = "TODOS" | "IDENTIDAD" | "RTN";
-export type EstadoClienteFiltro = "TODOS" | "ACTIVO" | "INACTIVO";
+export type EstadoClienteFiltro = 'TODOS' | 'ACTIVO' | 'INACTIVO';
 
-export interface Cliente {
-  _id: string;
-  codigoCliente?: string;
+export interface ClienteResumen {
+  id: string;
+  codigoCliente: string;
+  nombreCompleto: string;
   identidadCliente?: string;
-  RTN?: string;
-  nombres?: string;
-  apellidos?: string;
-  telefono?: string;
-  direccion?: string;
-  correo?: string;
-  estado?: string; // ACTIVO / INACTIVO / MOROSO etc.
-  fechaRegistro?: string;
+  telefonoPrincipal?: string;
+  departamentoResidencia?: string;
+  municipioResidencia?: string;
+  zonaResidencialCliente?: string;
+  actividad: boolean;
 }
 
 export interface ClientesFilters {
   busqueda: string;
-  tipoDoc: TipoDocFiltro;
   estado: EstadoClienteFiltro;
 }
 
 export function useClientes(filters: ClientesFilters) {
-  const [data, setData] = useState<Cliente[]>([]);
+  const [data, setData] = useState<ClienteResumen[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,20 +35,43 @@ export function useClientes(filters: ClientesFilters) {
       setLoading(true);
       setError(null);
       try {
-        // 🔹 Llama a /clientes – luego conectamos bien con tu backend
-        const res = await apiFetch<Cliente[]>("/clientes");
-        if (!cancelled) {
-          setData(res || []);
-        }
+        const res = await apiFetch<any[]>('/clientes'); // GET /api/clientes
+
+        if (cancelled) return;
+
+        const mapped: ClienteResumen[] = (res || []).map((c: any) => {
+          const nombreCompleto =
+            c.nombreCompleto ||
+            [c.nombre, c.apellido].filter(Boolean).join(' ') ||
+            'Cliente';
+
+          const telefonos: string[] = Array.isArray(c.telefono)
+            ? c.telefono
+            : c.telefono
+            ? [c.telefono]
+            : [];
+
+          return {
+            id: String(c._id ?? c.id ?? ''),
+            codigoCliente: c.codigoCliente ?? '',
+            nombreCompleto,
+            identidadCliente: c.identidadCliente ?? c.identidad ?? undefined,
+            telefonoPrincipal: telefonos[0],
+            departamentoResidencia: c.departamentoResidencia ?? undefined,
+            municipioResidencia: c.municipioResidencia ?? undefined,
+            zonaResidencialCliente: c.zonaResidencialCliente ?? undefined,
+            actividad: c.actividad ?? true,
+          };
+        });
+
+        setData(mapped);
       } catch (err: any) {
+        console.error('Error cargando clientes:', err);
         if (!cancelled) {
-          console.error("Error cargando clientes:", err);
-          setError(err.message || "Error al cargar clientes");
+          setError(err.message || 'Error al cargar clientes');
         }
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     }
 
@@ -62,43 +82,28 @@ export function useClientes(filters: ClientesFilters) {
     };
   }, []);
 
-  // 🔹 Filtros en memoria
+  // filtros en memoria
   let filtrados = [...data];
 
-  // Filtro por tipo de documento
-  if (filters.tipoDoc === "IDENTIDAD") {
-    filtrados = filtrados.filter((c) => c.identidadCliente);
-  } else if (filters.tipoDoc === "RTN") {
-    filtrados = filtrados.filter((c) => c.RTN);
+  if (filters.estado !== 'TODOS') {
+    const isActivo = filters.estado === 'ACTIVO';
+    filtrados = filtrados.filter((c) => c.actividad === isActivo);
   }
 
-  // Filtro por estado
-  if (filters.estado !== "TODOS") {
-    filtrados = filtrados.filter(
-      (c) => (c.estado || "").toUpperCase() === filters.estado
-    );
-  }
-
-  // Búsqueda por nombre, código, identidad, RTN
   if (filters.busqueda.trim()) {
     const q = filters.busqueda.trim().toLowerCase();
     filtrados = filtrados.filter((c) => {
-      const nombre = [c.nombres, c.apellidos].filter(Boolean).join(" ");
       return (
-        (c.codigoCliente || "").toLowerCase().includes(q) ||
-        (c.identidadCliente || "").toLowerCase().includes(q) ||
-        (c.RTN || "").toLowerCase().includes(q) ||
-        nombre.toLowerCase().includes(q)
+        c.codigoCliente.toLowerCase().includes(q) ||
+        c.nombreCompleto.toLowerCase().includes(q) ||
+        (c.identidadCliente || '').toLowerCase().includes(q)
       );
     });
   }
 
-  // Orden simple: por nombre
-  filtrados.sort((a, b) => {
-    const nombreA = [a.nombres, a.apellidos].filter(Boolean).join(" ");
-    const nombreB = [b.nombres, b.apellidos].filter(Boolean).join(" ");
-    return nombreA.localeCompare(nombreB, "es");
-  });
+  filtrados.sort((a, b) =>
+    (a.nombreCompleto || '').localeCompare(b.nombreCompleto || '', 'es'),
+  );
 
-  return { data: filtrados, loading, error };
+  return { data: filtrados, loading, error };
 }
