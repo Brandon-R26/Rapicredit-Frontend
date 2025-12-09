@@ -20,6 +20,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import Link from 'next/link';
+import EditIcon from '@mui/icons-material/Edit';
 import {
   useClientes,
   EstadoClienteFiltro,
@@ -30,6 +31,17 @@ const ClientesPage: React.FC = () => {
   const [estado, setEstado] = useState<EstadoClienteFiltro>('TODOS');
 
   const { data, loading, error } = useClientes({ busqueda, estado });
+
+  // Local override of actividad to simulate activate/deactivate without backend
+  const [actividadOverrides, setActividadOverrides] = useState<Record<string, boolean>>({});
+
+  const getActividad = (id: string, original: boolean) =>
+    actividadOverrides[id] ?? original;
+
+  const toggleActividad = (id: string, original: boolean) => {
+    const current = actividadOverrides[id] ?? original;
+    setActividadOverrides((prev) => ({ ...prev, [id]: !current }));
+  };
 
   const handleBusquedaChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -44,7 +56,7 @@ const ClientesPage: React.FC = () => {
       <Chip
         size="small"
         label={activo ? 'ACTIVO' : 'INACTIVO'}
-        color={activo ? 'success' : 'default'}
+        color={activo ? 'success' : 'error'}
         variant="outlined"
       />
     );
@@ -139,16 +151,34 @@ const ClientesPage: React.FC = () => {
                     <TableCell>{c.telefonoPrincipal || '—'}</TableCell>
                     <TableCell>{c.departamentoResidencia || '—'}</TableCell>
                     <TableCell>{c.municipioResidencia || '—'}</TableCell>
-                    <TableCell>{renderActividadChip(c.actividad)}</TableCell>
+                    <TableCell>{renderActividadChip(getActividad(c.id, c.actividad))}</TableCell>
                     <TableCell>
-                      <Button
-                        size="small"
-                        variant="text"
-                        component={Link}
-                        href={`/clientes/${c.id}`}
-                      >
-                        Ver
-                      </Button>
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <Button
+                          size="small"
+                          variant="text"
+                          component={Link}
+                          href={`/clientes/${c.id}`}
+                        >
+                          Ver
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="text"
+                          component={Link}
+                          href={`/clientes/${c.id}?edit=1`}
+                          startIcon={<EditIcon fontSize="small" />}
+                          aria-label="Editar"
+                        />
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color={getActividad(c.id, c.actividad) ? 'error' : 'success'}
+                          onClick={() => toggleActividad(c.id, c.actividad)}
+                        >
+                          {getActividad(c.id, c.actividad) ? 'Desactivar Cliente' : 'Activar Cliente'}
+                        </Button>
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))}
