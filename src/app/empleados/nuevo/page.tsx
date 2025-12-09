@@ -20,8 +20,15 @@ const NuevoEmpleadoPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
+  // Generar código automático
+  const generateCode = () => {
+    const timestamp = Date.now().toString().slice(-6);
+    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `EMP${timestamp}${random}`;
+  };
+
   const [formData, setFormData] = useState({
-    codigo: "",
+    codigo: generateCode(),
     nombreCompleto: "",
     rol: "",
     email: "",
@@ -131,7 +138,7 @@ const NuevoEmpleadoPage: React.FC = () => {
                 label="Código"
                 name="codigo"
                 value={formData.codigo}
-                onChange={handleChange}
+                disabled
                 InputLabelProps={{ shrink: true }}
               />
             </Grid>
