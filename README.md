@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Rapicredit — Loan Management Portal
 
-## Getting Started
+Web front end for the back office of a loan company. Staff use it to register clients, review loan requests, manage active loans and payments, assign collectors and configure interest rates.
 
-First, run the development server:
+Built as a team project for a university course at UNITEC (December 2025).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Features
+
+| Module | Route | What it does |
+|---|---|---|
+| Login | `/login` | Staff sign-in |
+| Dashboard | `/dashboard` | Overview of the operation |
+| Clients | `/clientes` | Create, edit and deactivate clients |
+| Loan requests | `/solicitudes` | Review and process incoming requests |
+| Loans | `/prestamos` | Active loans |
+| Payments | `/pagos` | Payment records |
+| Collectors | `/cobradores` | Field collectors |
+| Employees | `/empleados` | Staff management |
+| Interest rates | `/tasas` | Rate configuration |
+| Reports | `/reportes` | Reports |
+| Settings | `/configuracion` | App settings |
+
+## Tech stack
+
+- **Next.js 16** (App Router) with **React 19** and the React Compiler
+- **TypeScript**
+- **Material UI 7** (with Emotion) for components and theming
+- A small typed `fetch` wrapper (`src/lib/api.ts`) that talks to a separate REST back end, with bearer-token support and centralized error handling
+
+## Project structure
+
+```
+src/
+├── app/          # One folder per route (App Router)
+├── components/   # Shared UI components
+├── hooks/        # Custom React hooks
+├── lib/api.ts    # API client for the back end
+└── theme/        # Material UI theme
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Running it locally
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Requires Node.js 20+ and the Rapicredit back end running somewhere reachable.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm install
+echo "NEXT_PUBLIC_API_BASE_URL=http://localhost:8080" > .env.local   # your back-end URL
+npm run dev
+```
 
-## Learn More
+Then open http://localhost:3000.
 
-To learn more about Next.js, take a look at the following resources:
+## Team
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Member | Main contributions |
+|---|---|
+| [Brandon Hernández](https://github.com/Brandon-R26) | Project setup, base layout and visual template, API client and back-end integration, code reviews and merges |
+| [@jesusr0604](https://github.com/jesusr0604) | Employees and interest-rate modules |
+| [@KDBlitzz](https://github.com/KDBlitzz) | Loan-request module, client edit and deactivate actions, fixes |
+| [@andrea-castillosz](https://github.com/andrea-castillosz) | Login and clients module |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+<details>
+<summary><b>En español</b></summary>
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Front end del sistema administrativo de una financiera. El personal lo usa para registrar clientes, revisar solicitudes de préstamo, administrar préstamos y pagos, asignar cobradores y configurar tasas de interés.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Proyecto en equipo para un curso de UNITEC (diciembre de 2025), hecho con Next.js 16, React 19, TypeScript y Material UI 7. Se conecta a un back end REST aparte mediante `src/lib/api.ts`.
+
+**Mi parte:** la configuración inicial del proyecto, la plantilla visual y el layout base, el cliente de la API con la integración al back end, y la revisión y el merge de ramas del equipo.
+
+Para correrlo: `npm install`, definir `NEXT_PUBLIC_API_BASE_URL` en `.env.local` con la URL del back end, y `npm run dev`.
+
+</details>
